@@ -1,54 +1,54 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BookOpen, Clock, GraduationCap, TrendingUp } from "lucide-react";
+import { BookOpen, Clock, GraduationCap, MapPin } from "lucide-react";
 
 export function DashboardStats() {
     return (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">GPA</CardTitle>
+                    <CardTitle className="text-sm font-medium">Cumulative GPA</CardTitle>
                     <GraduationCap className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">3.8</div>
                     <p className="text-xs text-muted-foreground">
-                        +0.2 from last semester
+                        Top 10% of your cohort
                     </p>
                 </CardContent>
             </Card>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Credits Earned</CardTitle>
-                    <BookOpen className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">84</div>
-                    <p className="text-xs text-muted-foreground">
-                        12 in progress
-                    </p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Attendance</CardTitle>
+                    <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
                     <Clock className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                     <div className="text-2xl font-bold">95%</div>
                     <p className="text-xs text-muted-foreground">
-                        Last 30 days
+                        0 unexcused absences
                     </p>
                 </CardContent>
             </Card>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Assignments</CardTitle>
-                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                    <CardTitle className="text-sm font-medium">Assignments Due</CardTitle>
+                    <BookOpen className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">12</div>
+                    <div className="text-2xl font-bold">3</div>
                     <p className="text-xs text-muted-foreground">
-                        3 due this week
+                        2 due today
+                    </p>
+                </CardContent>
+            </Card>
+            <Card className="bg-primary text-primary-foreground">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-primary-foreground/90">Next Class</CardTitle>
+                    <MapPin className="h-4 w-4 text-primary-foreground/70" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">CS 401</div>
+                    <p className="text-xs text-primary-foreground/80">
+                        Starts in 25 mins • Room 301
                     </p>
                 </CardContent>
             </Card>

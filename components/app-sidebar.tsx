@@ -1,0 +1,212 @@
+"use client"
+
+import * as React from "react"
+import {
+  BookOpen,
+  Calendar as CalendarIcon,
+  ClipboardCheck,
+  ClipboardList,
+  CreditCard,
+  GraduationCap,
+  HelpCircle,
+  HomeIcon,
+  Library,
+  Megaphone,
+  Settings,
+  UserCircle,
+  Users,
+  Plus
+} from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
+import Link from "next/link"
+
+import { Calendars } from "@/components/calendars"
+import { DatePicker } from "@/components/date-picker"
+import UserProfile from "@/components/user-profile"
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarRail,
+  SidebarSeparator,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+} from "@/components/ui/sidebar"
+
+// This is sample data for calendars.
+const data = {
+  calendars: [
+    {
+      name: "My Calendars",
+      items: ["Personal", "Work", "Family"],
+    },
+    {
+      name: "Favorites",
+      items: ["Holidays", "Birthdays"],
+    },
+    {
+      name: "Other",
+      items: ["Travel", "Reminders", "Deadlines"],
+    },
+  ],
+}
+
+export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const pathname = usePathname()
+  const router = useRouter()
+
+  const navSections = [
+    {
+      items: [
+        {
+          label: "Home",
+          href: "/dashboard",
+          icon: HomeIcon,
+        },
+        {
+          label: "My Subjects",
+          href: "/dashboard/subjects",
+          icon: BookOpen,
+        },
+        {
+          label: "Grades",
+          href: "/dashboard/grades",
+          icon: GraduationCap,
+        },
+        {
+          label: "Education History",
+          href: "/dashboard/education-history",
+          icon: ClipboardCheck,
+        },
+        {
+          label: "Attendance",
+          href: "/dashboard/attendance",
+          icon: ClipboardList,
+        },
+        {
+          label: "Teachers",
+          href: "/dashboard/teachers",
+          icon: Users,
+        },
+        {
+          label: "Schedule",
+          href: "/dashboard/schedule",
+          icon: CalendarIcon,
+        }
+      ],
+    },
+    {
+      title: "Additional Features",
+      items: [
+        {
+          label: "Assignments",
+          href: "/dashboard/assignments",
+          icon: ClipboardList,
+        },
+        {
+          label: "Payments",
+          href: "/dashboard/payments",
+          icon: CreditCard,
+        },
+        {
+          label: "Library",
+          href: "/dashboard/library",
+          icon: Library,
+        },
+        {
+          label: "Announcements",
+          href: "/dashboard/announcements",
+          icon: Megaphone,
+        },
+      ],
+    },
+  ]
+
+  const accountItems = [
+    {
+      label: "Profile",
+      href: "/dashboard/profile",
+      icon: UserCircle,
+    },
+    {
+      label: "Settings",
+      href: "/dashboard/settings",
+      icon: Settings,
+    },
+    {
+      label: "Help & Support",
+      href: "/dashboard/help",
+      icon: HelpCircle,
+    },
+  ]
+
+  return (
+    <Sidebar {...props}>
+      <SidebarHeader className="h-16 border-b border-sidebar-border">
+        <div className="flex items-center gap-2 px-2 py-4">
+          <Link href="/" className="flex items-center gap-2 font-semibold text-lg hover:cursor-pointer">
+             <span>Student Portal</span>
+          </Link>
+        </div>
+      </SidebarHeader>
+      <SidebarContent>
+        <DatePicker />
+        <SidebarSeparator className="mx-0" />
+        <Calendars calendars={data.calendars} />
+        <SidebarSeparator className="mx-0" />
+        
+        {navSections.map((section, idx) => (
+          <SidebarGroup key={idx}>
+            {section.title && <SidebarGroupLabel>{section.title}</SidebarGroupLabel>}
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {section.items.map((item) => (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton 
+                      onClick={() => router.push(item.href)}
+                      isActive={pathname === item.href}
+                    >
+                      <item.icon />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ))}
+
+        <SidebarGroup>
+            <SidebarGroupLabel>Account</SidebarGroupLabel>
+            <SidebarGroupContent>
+                <SidebarMenu>
+                    {accountItems.map((item) => (
+                        <SidebarMenuItem key={item.href}>
+                            <SidebarMenuButton
+                                onClick={() => router.push(item.href)}
+                                isActive={pathname === item.href}
+                            >
+                                <item.icon />
+                                <span>{item.label}</span>
+                            </SidebarMenuButton>
+                        </SidebarMenuItem>
+                    ))}
+                </SidebarMenu>
+            </SidebarGroupContent>
+        </SidebarGroup>
+
+      </SidebarContent>
+      <SidebarFooter>
+        <div className="p-2">
+            <UserProfile />
+        </div>
+      </SidebarFooter>
+      <SidebarRail />
+    </Sidebar>
+  )
+}

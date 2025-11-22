@@ -1,6 +1,8 @@
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Calendar, Clock, ArrowRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const assignments = [
     {
@@ -27,22 +29,6 @@ const assignments = [
         status: "pending",
         priority: "medium",
     },
-    {
-        id: 4,
-        title: "Code Review Exercise",
-        course: "CS 320",
-        dueDate: "2025-11-24",
-        status: "in-progress",
-        priority: "medium",
-    },
-    {
-        id: 5,
-        title: "Weekly Quiz",
-        course: "CS 305",
-        dueDate: "2025-11-21",
-        status: "pending",
-        priority: "low",
-    },
 ];
 
 function getDaysUntil(dateString: string) {
@@ -53,14 +39,26 @@ function getDaysUntil(dateString: string) {
     return diffDays;
 }
 
-export function AssignmentList() {
+interface AssignmentListProps {
+    className?: string;
+}
+
+export function AssignmentList({ className }: AssignmentListProps) {
     return (
-        <Card className="col-span-full lg:col-span-1">
-            <CardHeader>
-                <CardTitle>Upcoming Assignments</CardTitle>
+        <Card className={cn("col-span-3", className)}>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                    <CardTitle>Active Assignments</CardTitle>
+                    <CardDescription>
+                        Prioritize your upcoming deadlines.
+                    </CardDescription>
+                </div>
+                <Button variant="outline" size="sm" className="hidden sm:flex">
+                    View All
+                </Button>
             </CardHeader>
             <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-4">
                     {assignments.map((assignment) => {
                         const daysUntil = getDaysUntil(assignment.dueDate);
                         const isUrgent = daysUntil <= 2;
@@ -68,33 +66,41 @@ export function AssignmentList() {
                         return (
                             <div
                                 key={assignment.id}
-                                className="p-3 border rounded-lg hover:bg-accent transition-colors"
+                                className="flex flex-col gap-3 p-4 border rounded-lg hover:bg-accent/50 transition-colors"
                             >
-                                <div className="flex items-start justify-between gap-2 mb-2">
-                                    <h4 className="font-medium text-sm leading-tight flex-1">
-                                        {assignment.title}
-                                    </h4>
-                                    {assignment.status === "in-progress" && (
-                                        <Badge variant="outline" className="text-xs">
-                                            In Progress
-                                        </Badge>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-                                    <span className="font-medium">{assignment.course}</span>
-                                </div>
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-1 text-xs">
-                                        <Calendar className="h-3 w-3" />
-                                        <span className={isUrgent ? "text-red-500 font-medium" : ""}>
-                                            {isUrgent ? "Due soon" : `${daysUntil} days left`}
-                                        </span>
+                                <div className="flex items-start justify-between gap-2">
+                                    <div>
+                                        <h4 className="font-medium text-sm leading-tight">
+                                            {assignment.title}
+                                        </h4>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {assignment.course}
+                                        </p>
                                     </div>
                                     {assignment.priority === "high" && (
-                                        <Badge className="bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 text-xs">
+                                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
                                             High Priority
                                         </Badge>
                                     )}
+                                </div>
+                                
+                                <div className="flex items-center justify-between mt-1">
+                                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                        <div className="flex items-center gap-1">
+                                            <Clock className="h-3 w-3" />
+                                            <span className={isUrgent ? "text-red-500 font-medium" : ""}>
+                                                {isUrgent ? "Due soon" : `${daysUntil} days left`}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                            <Calendar className="h-3 w-3" />
+                                            <span>{assignment.dueDate}</span>
+                                        </div>
+                                    </div>
+                                    <Button size="sm" variant="secondary" className="h-7 text-xs">
+                                        Submit
+                                        <ArrowRight className="ml-1 h-3 w-3" />
+                                    </Button>
                                 </div>
                             </div>
                         );
