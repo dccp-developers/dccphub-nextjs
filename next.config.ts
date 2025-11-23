@@ -29,18 +29,14 @@ const nextConfig: NextConfig = {
     };
     return config;
   },
+  serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg"],
+  turbopack: {
+    // Example: adding an alias and custom file extension
+    resolveAlias: {
+      underscore: "lodash",
+    },
+    resolveExtensions: [".mdx", ".tsx", ".ts", ".jsx", ".js", ".json"],
+  },
 };
-
-// Polyfill for broken localStorage in some environments
-if (typeof global !== 'undefined' && (!global.localStorage || typeof global.localStorage.getItem !== 'function')) {
-  global.localStorage = {
-    getItem: () => null,
-    setItem: () => {},
-    removeItem: () => {},
-    clear: () => {},
-    length: 0,
-    key: () => null,
-  } as any;
-}
 
 export default nextConfig;

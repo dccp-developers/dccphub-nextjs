@@ -44,3 +44,5 @@ next-env.d.ts
 AuthKey_8LYJ3Y87D4.p8
 # clerk configuration (can include secrets)
 /.clerk/
+
+/lib/generated/prisma

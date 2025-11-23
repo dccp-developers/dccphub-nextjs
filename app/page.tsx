@@ -1,12 +1,9 @@
-import FooterSection from "@/components/homepage/footer";
 import HeroSection from "@/components/homepage/hero-section";
-import Integrations from "@/components/homepage/integrations";
+
 export default function Home() {
   return (
-    <>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/20">
       <HeroSection />
-      <Integrations />
-      <FooterSection />
-    </>
+    </div>
   );
 }

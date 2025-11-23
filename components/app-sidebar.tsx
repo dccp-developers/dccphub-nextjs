@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import * as React from "react"
+import * as React from "react";
 import {
   BookOpen,
   Calendar as CalendarIcon,
@@ -15,14 +15,14 @@ import {
   Settings,
   UserCircle,
   Users,
-  Plus
-} from "lucide-react"
-import { usePathname, useRouter } from "next/navigation"
-import Link from "next/link"
+} from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { useAuth } from "@clerk/nextjs";
 
-import { Calendars } from "@/components/calendars"
-import { DatePicker } from "@/components/date-picker"
-import UserProfile from "@/components/user-profile"
+import { Calendars } from "@/components/calendars";
+import { DatePicker } from "@/components/date-picker";
+import UserProfile from "@/components/user-profile";
 import {
   Sidebar,
   SidebarContent,
@@ -36,7 +36,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarGroupLabel,
-} from "@/components/ui/sidebar"
+} from "@/components/ui/sidebar";
 
 // This is sample data for calendars.
 const data = {
@@ -54,11 +54,17 @@ const data = {
       items: ["Travel", "Reminders", "Deadlines"],
     },
   ],
-}
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const pathname = usePathname()
-  const router = useRouter()
+  const pathname = usePathname();
+  const router = useRouter();
+  const { has } = useAuth();
+
+  // Check if user has calendar access permission
+  const hasCalendarAccess = has?.({
+    permission: "school_calendar:calendar_access",
+  });
 
   const navSections = [
     {
@@ -93,11 +99,15 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           href: "/dashboard/teachers",
           icon: Users,
         },
-        {
-          label: "Schedule",
-          href: "/dashboard/schedule",
-          icon: CalendarIcon,
-        }
+        ...(hasCalendarAccess
+          ? [
+              {
+                label: "Schedule",
+                href: "/dashboard/schedule",
+                icon: CalendarIcon,
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -125,7 +135,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         },
       ],
     },
-  ]
+  ];
 
   const accountItems = [
     {
@@ -143,31 +153,40 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       href: "/dashboard/help",
       icon: HelpCircle,
     },
-  ]
+  ];
 
   return (
     <Sidebar {...props}>
       <SidebarHeader className="h-16 border-b border-sidebar-border">
         <div className="flex items-center gap-2 px-2 py-4">
-          <Link href="/" className="flex items-center gap-2 font-semibold text-lg hover:cursor-pointer">
-             <span>Student Portal</span>
+          <Link
+            href="/"
+            className="flex items-center gap-2 font-semibold text-lg hover:cursor-pointer"
+          >
+            <span>Student Portal</span>
           </Link>
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <DatePicker />
-        <SidebarSeparator className="mx-0" />
-        <Calendars calendars={data.calendars} />
-        <SidebarSeparator className="mx-0" />
-        
+        {hasCalendarAccess && (
+          <>
+            <DatePicker />
+            <SidebarSeparator className="mx-0" />
+            <Calendars calendars={data.calendars} />
+            <SidebarSeparator className="mx-0" />
+          </>
+        )}
+
         {navSections.map((section, idx) => (
           <SidebarGroup key={idx}>
-            {section.title && <SidebarGroupLabel>{section.title}</SidebarGroupLabel>}
+            {section.title && (
+              <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
+            )}
             <SidebarGroupContent>
               <SidebarMenu>
                 {section.items.map((item) => (
                   <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton 
+                    <SidebarMenuButton
                       onClick={() => router.push(item.href)}
                       isActive={pathname === item.href}
                     >
@@ -182,31 +201,30 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ))}
 
         <SidebarGroup>
-            <SidebarGroupLabel>Account</SidebarGroupLabel>
-            <SidebarGroupContent>
-                <SidebarMenu>
-                    {accountItems.map((item) => (
-                        <SidebarMenuItem key={item.href}>
-                            <SidebarMenuButton
-                                onClick={() => router.push(item.href)}
-                                isActive={pathname === item.href}
-                            >
-                                <item.icon />
-                                <span>{item.label}</span>
-                            </SidebarMenuButton>
-                        </SidebarMenuItem>
-                    ))}
-                </SidebarMenu>
-            </SidebarGroupContent>
+          <SidebarGroupLabel>Account</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {accountItems.map((item) => (
+                <SidebarMenuItem key={item.href}>
+                  <SidebarMenuButton
+                    onClick={() => router.push(item.href)}
+                    isActive={pathname === item.href}
+                  >
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
         </SidebarGroup>
-
       </SidebarContent>
       <SidebarFooter>
         <div className="p-2">
-            <UserProfile />
+          <UserProfile />
         </div>
       </SidebarFooter>
       <SidebarRail />
     </Sidebar>
-  )
+  );
 }

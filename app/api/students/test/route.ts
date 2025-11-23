@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/db/drizzle";
-import { students } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,30 +7,35 @@ export async function GET(request: NextRequest) {
     const studentId = searchParams.get("studentId");
 
     if (!studentId) {
-      return NextResponse.json({ error: "studentId query param required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "studentId query param required" },
+        { status: 400 },
+      );
     }
 
     const studentIdNumber = parseInt(studentId, 10);
 
     // Try to find the student
-    const result = await db
-      .select()
-      .from(students)
-      .where(eq(students.studentId, studentIdNumber))
-      .limit(1);
+    const result = await prisma.students.findFirst({
+      where: {
+        student_id: studentIdNumber,
+      },
+    });
 
     return NextResponse.json({
-      found: result.length > 0,
-      count: result.length,
-      student: result.length > 0 ? {
-        id: result[0].id,
-        studentId: result[0].studentId,
-        firstName: result[0].firstName,
-        lastName: result[0].lastName,
-        email: result[0].email,
-        deletedAt: result[0].deletedAt,
-        status: result[0].status,
-      } : null,
+      found: result !== null,
+      count: result ? 1 : 0,
+      student: result
+        ? {
+            id: result.id,
+            studentId: result.student_id,
+            firstName: result.first_name,
+            lastName: result.last_name,
+            email: result.email,
+            deletedAt: result.deleted_at,
+            status: result.status,
+          }
+        : null,
     });
   } catch (error) {
     console.error("Test query error:", error);
@@ -41,7 +44,7 @@ export async function GET(request: NextRequest) {
         error: "Database query failed",
         details: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
