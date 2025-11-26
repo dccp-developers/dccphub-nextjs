@@ -1,9 +1,21 @@
-import { clerkMiddleware, createRouteMatcher, clerkClient } from "@clerk/nextjs/server";
+import {
+  clerkMiddleware,
+  createRouteMatcher,
+  clerkClient,
+} from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-const isProtectedRoute = createRouteMatcher(["/dashboard(.*)"]);
+const isStudentDashboard = createRouteMatcher(["/dashboard/student(.*)"]);
+const isFacultyDashboard = createRouteMatcher(["/dashboard/faculty(.*)"]);
 const isOnboardingRoute = createRouteMatcher(["/onboarding"]);
-const isPublicRoute = createRouteMatcher(["/", "/sign-in(.*)", "/sign-up(.*)", "/privacy-policy", "/terms-of-service", "/success"]);
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/privacy-policy",
+  "/terms-of-service",
+  "/success",
+]);
 
 export default clerkMiddleware(async (auth, req) => {
   const { userId } = await auth();
@@ -22,34 +34,72 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.next();
   }
 
-  // Protect dashboard routes - require authentication
-  if (isProtectedRoute(req)) {
+  // Protect dashboard routes - require authentication and role-based access
+  if (isStudentDashboard(req) || isFacultyDashboard(req)) {
     await auth.protect();
 
-    // Get the current user to check publicMetadata directly using clerkClient
-    // This is more reliable than sessionClaims which may not be updated yet
+    // Get the current user to check publicMetadata
     const client = await clerkClient();
     const user = await client.users.getUser(userId!);
-
-    const hasRequiredInfo =
-      user?.publicMetadata?.studentId &&
-      user?.publicMetadata?.dateOfBirth &&
-      user?.publicMetadata?.phone;
+    const userRole = user?.publicMetadata?.role as string | undefined;
 
     console.log("[MIDDLEWARE] Dashboard access attempt");
     console.log("[MIDDLEWARE] User ID:", userId);
-    console.log("[MIDDLEWARE] Has required info:", hasRequiredInfo);
-    console.log("[MIDDLEWARE] Metadata from user:", {
-      studentId: user?.publicMetadata?.studentId,
-      dateOfBirth: user?.publicMetadata?.dateOfBirth,
-      phone: user?.publicMetadata?.phone,
-    });
+    console.log("[MIDDLEWARE] User role:", userRole);
+    console.log("[MIDDLEWARE] Requested path:", req.nextUrl.pathname);
 
-    // If user is authenticated but missing required info, redirect to onboarding
-    if (userId && !hasRequiredInfo) {
-      console.log("[MIDDLEWARE] Redirecting to onboarding - missing required info");
+    // If no role assigned, redirect to onboarding
+    if (!userRole) {
+      console.log("[MIDDLEWARE] No role found, redirecting to onboarding");
       const onboardingUrl = new URL("/onboarding", req.url);
       return NextResponse.redirect(onboardingUrl);
+    }
+
+    // Check role-specific required info
+    if (userRole === "student") {
+      const hasRequiredInfo =
+        user?.publicMetadata?.studentId &&
+        user?.publicMetadata?.dateOfBirth &&
+        user?.publicMetadata?.phone;
+
+      // If missing required info, redirect to onboarding
+      if (!hasRequiredInfo) {
+        console.log(
+          "[MIDDLEWARE] Student missing required info, redirecting to onboarding",
+        );
+        const onboardingUrl = new URL("/onboarding", req.url);
+        return NextResponse.redirect(onboardingUrl);
+      }
+
+      // If student trying to access faculty dashboard, redirect to student dashboard
+      if (isFacultyDashboard(req)) {
+        console.log(
+          "[MIDDLEWARE] Student trying to access faculty dashboard, redirecting",
+        );
+        const studentDashboardUrl = new URL("/dashboard/student", req.url);
+        return NextResponse.redirect(studentDashboardUrl);
+      }
+    } else if (userRole === "faculty") {
+      const hasRequiredInfo =
+        user?.publicMetadata?.facultyId && user?.publicMetadata?.phone;
+
+      // If missing required info, redirect to onboarding
+      if (!hasRequiredInfo) {
+        console.log(
+          "[MIDDLEWARE] Faculty missing required info, redirecting to onboarding",
+        );
+        const onboardingUrl = new URL("/onboarding", req.url);
+        return NextResponse.redirect(onboardingUrl);
+      }
+
+      // If faculty trying to access student dashboard, redirect to faculty dashboard
+      if (isStudentDashboard(req)) {
+        console.log(
+          "[MIDDLEWARE] Faculty trying to access student dashboard, redirecting",
+        );
+        const facultyDashboardUrl = new URL("/dashboard/faculty", req.url);
+        return NextResponse.redirect(facultyDashboardUrl);
+      }
     }
 
     console.log("[MIDDLEWARE] Allowing access to dashboard");

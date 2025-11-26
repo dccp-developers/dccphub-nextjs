@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import { ThemeProvider } from "../components/provider";
 import "./globals.css";
 import { Analytics } from "@vercel/analytics/next";
+
+export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Next.js Starter Kit - Launch Your SAAS",
   description:
@@ -33,15 +35,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider dynamic>
       <html lang="en" suppressHydrationWarning>
         <body className={`font-[-apple-system,BlinkMacSystemFont]antialiased`}>
           <ThemeProvider
             attribute="class"
             defaultTheme="light"
-            enableSystem
+            enableSystem={false}
             forcedTheme="light"
             disableTransitionOnChange
+            enableColorScheme={false}
           >
             {children}
             <Toaster />

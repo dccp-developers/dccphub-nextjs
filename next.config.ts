@@ -30,13 +30,6 @@ const nextConfig: NextConfig = {
     return config;
   },
   serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg"],
-  turbopack: {
-    // Example: adding an alias and custom file extension
-    resolveAlias: {
-      underscore: "lodash",
-    },
-    resolveExtensions: [".mdx", ".tsx", ".ts", ".jsx", ".js", ".json"],
-  },
 };
 
 export default nextConfig;

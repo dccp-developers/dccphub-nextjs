@@ -59,19 +59,23 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const router = useRouter();
-  const { has } = useAuth();
+  const { has, sessionClaims } = useAuth();
 
+  // Get user role from session claims
+  const userRole = (sessionClaims?.metadata as { role?: string })?.role;
+  console.log(userRole);
   // Check if user has calendar access permission
   const hasCalendarAccess = has?.({
     permission: "school_calendar:calendar_access",
   });
 
-  const navSections = [
+  // Student navigation sections
+  const studentNavSections = [
     {
       items: [
         {
           label: "Home",
-          href: "/dashboard",
+          href: "/dashboard/student",
           icon: HomeIcon,
         },
         {
@@ -137,6 +141,67 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     },
   ];
 
+  // Faculty navigation sections
+  const facultyNavSections = [
+    {
+      items: [
+        {
+          label: "Home",
+          href: "/dashboard/faculty",
+          icon: HomeIcon,
+        },
+        {
+          label: "My Classes",
+          href: "/dashboard/faculty/classes",
+          icon: BookOpen,
+        },
+        {
+          label: "Students",
+          href: "/dashboard/faculty/students",
+          icon: Users,
+        },
+        {
+          label: "Grades",
+          href: "/dashboard/faculty/grades",
+          icon: GraduationCap,
+        },
+        {
+          label: "Attendance",
+          href: "/dashboard/faculty/attendance",
+          icon: ClipboardList,
+        },
+        ...(hasCalendarAccess
+          ? [
+              {
+                label: "Schedule",
+                href: "/dashboard/faculty/schedule",
+                icon: CalendarIcon,
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      title: "Additional Features",
+      items: [
+        {
+          label: "Assignments",
+          href: "/dashboard/faculty/assignments",
+          icon: ClipboardList,
+        },
+        {
+          label: "Announcements",
+          href: "/dashboard/faculty/announcements",
+          icon: Megaphone,
+        },
+      ],
+    },
+  ];
+
+  // Select navigation sections based on user role
+  const navSections =
+    userRole === "faculty" ? facultyNavSections : studentNavSections;
+
   const accountItems = [
     {
       label: "Profile",
@@ -163,7 +228,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             href="/"
             className="flex items-center gap-2 font-semibold text-lg hover:cursor-pointer"
           >
-            <span>Student Portal</span>
+            <span>DCCPHub</span>
           </Link>
         </div>
       </SidebarHeader>

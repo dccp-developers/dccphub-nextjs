@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("[VALIDATE] Success! Student found:", {
-      id: student.student_id,
+      id: Number(student.student_id),
       name: `${student.first_name} ${student.last_name}`,
     });
 
@@ -123,13 +123,15 @@ export async function POST(request: NextRequest) {
         lastName: student.last_name,
         middleName: student.middle_name,
         email: student.email,
-        studentId: student.student_id,
-        birthDate: student.birth_date,
+        studentId: Number(student.student_id),
+        birthDate: student.birth_date?.toISOString(),
         address: student.address,
-        courseId: student.course_id,
+        courseId: Number(student.course_id),
         gender: student.gender,
-        age: student.age,
-        academicYear: student.academic_year,
+        age: Number(student.age),
+        academicYear: student.academic_year
+          ? Number(student.academic_year)
+          : null,
         status: student.status,
         contacts: phone,
       },
