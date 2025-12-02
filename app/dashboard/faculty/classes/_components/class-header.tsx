@@ -35,6 +35,9 @@ interface ScheduleItem {
   startTime?: string;
   end_time?: string;
   endTime?: string;
+  formatted_start_time?: string;
+  formatted_end_time?: string;
+  time_range?: string;
   room?: string | { id?: string; name?: string; building?: string; floor?: string; capacity?: number };
 }
 
@@ -51,8 +54,7 @@ export function ClassHeader({ classDetails, schedule = [] }: ClassHeaderProps) {
   const transformedSchedule = scheduleArray.map((item) => ({
     id: item.id || Math.random().toString(36).substr(2, 9),
     dayOfWeek: item.dayOfWeek || item.day_of_week || "",
-    startTime: item.startTime || item.start_time || "",
-    endTime: item.endTime || item.end_time || "",
+    timeRange: item.time_range || `${item.formatted_start_time || ''} - ${item.formatted_end_time || ''}`,
     room: item.room
       ? typeof item.room === 'string'
         ? item.room
@@ -131,10 +133,6 @@ export function ClassHeader({ classDetails, schedule = [] }: ClassHeaderProps) {
 
               <div className="flex flex-wrap gap-4 text-sm">
                 <div className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-lg border border-border/50">
-                  <GraduationCap className="h-4 w-4 text-primary" />
-                  <span>{classDetails.credits} Units</span>
-                </div>
-                <div className="flex items-center gap-2 bg-secondary/50 px-3 py-1.5 rounded-lg border border-border/50">
                   <Users className="h-4 w-4 text-primary" />
                   <span>
                     {classDetails.enrolledStudents} / {classDetails.capacity}{" "}
@@ -167,9 +165,7 @@ export function ClassHeader({ classDetails, schedule = [] }: ClassHeaderProps) {
                         </div>
                         <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
                           <Clock className="h-3 w-3" />
-                          <span>
-                            {item.startTime} - {item.endTime}
-                          </span>
+                          <span>{item.timeRange}</span>
                         </div>
                       </div>
                     ))}
