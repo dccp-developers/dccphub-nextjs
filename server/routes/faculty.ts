@@ -427,20 +427,145 @@ export const faculty = new Elysia({ prefix: "/faculty" })
   .post(
     "/validate",
     async ({ body }) => {
-      // Add faculty validation logic here
-      return { success: true };
+      try {
+        // Ensure user is authenticated
+        try {
+          await requireAuth();
+        } catch {
+          return unauthorized();
+        }
+
+        const { email, facultyCode } = body;
+
+        console.log("[FACULTY VALIDATE] Input:", { email, facultyCode });
+
+        // Validate input
+        if (!email || !facultyCode) {
+          return badRequest("Email and Faculty Code are required");
+        }
+
+        // Import Laravel API client
+        const { laravelApi } = await import("@/lib/laravel-api");
+
+        try {
+          // Try to find faculty by faculty code in Laravel API
+          // We don't have a direct "validate" endpoint, so we'll try to get faculty data
+          const facultyData = await laravelApi.getFaculty(facultyCode);
+
+          if (!facultyData || !facultyData.data) {
+            return {
+              valid: false,
+              error: "Faculty Code not found in our system. Please verify your Faculty Code or contact the School MIS Administration.",
+            };
+          }
+
+          // Check email match (case-insensitive and trimmed)
+          const dbEmail = (facultyData.data.email || "").trim().toLowerCase();
+          const inputEmail = (email || "").trim().toLowerCase();
+
+          console.log("[FACULTY VALIDATE] Email comparison:", {
+            dbEmail,
+            inputEmail,
+            match: dbEmail === inputEmail,
+          });
+
+          if (dbEmail !== inputEmail) {
+            return {
+              valid: false,
+              error: `Email does not match our records for this Faculty Code. Expected: ${facultyData.data.email}. Please verify your email address or contact the School MIS Administration.`,
+            };
+          }
+
+          console.log("[FACULTY VALIDATE] Success! Faculty found:", {
+            id: facultyData.data.id,
+            name: `${facultyData.data.first_name} ${facultyData.data.last_name}`,
+          });
+
+          return {
+            valid: true,
+            faculty: {
+              firstName: facultyData.data.first_name,
+              lastName: facultyData.data.last_name,
+              middleName: facultyData.data.middle_name,
+              email: facultyData.data.email,
+              facultyId: facultyData.data.id.toString(),
+              facultyCode: facultyData.data.faculty_code,
+              department: facultyData.data.department,
+              phoneNumber: facultyData.data.phone_number || "",
+              status: facultyData.data.status || "Active",
+            },
+          };
+        } catch (laravelError) {
+          console.error("[FACULTY VALIDATE] Laravel API error:", laravelError);
+          // If faculty not found in Laravel API
+          return {
+            valid: false,
+            error: "Faculty Code not found in our system. Please verify your Faculty Code or contact the School MIS Administration.",
+          };
+        }
+      } catch (error) {
+        console.error("[FACULTY VALIDATE] Error validating faculty:", error);
+        return serverError(
+          "Internal server error. Please try again later.",
+          error instanceof Error ? error.message : "Unknown error"
+        );
+      }
     },
     {
-      body: t.Any(),
+      body: t.Object({
+        email: t.String(),
+        facultyCode: t.String(),
+      }),
     }
   )
   .post(
     "/update-metadata",
     async ({ body }) => {
-      // Add faculty metadata update logic here
-      return { success: true };
+      try {
+        // Ensure user is authenticated
+        const userId = await requireAuth();
+
+        console.log("[FACULTY UPDATE-METADATA] Starting update for user:", userId);
+
+        const { metadata } = body;
+
+        if (!metadata) {
+          return badRequest("Metadata is required");
+        }
+
+        // Import Clerk client
+        const { clerkClient } = await import("@clerk/nextjs/server");
+
+        try {
+          // Update user metadata in Clerk
+          const updatedUser = await clerkClient.users.updateUserMetadata(userId, {
+            publicMetadata: metadata,
+          });
+
+          console.log("[FACULTY UPDATE-METADATA] Successfully updated metadata");
+
+          return {
+            success: true,
+            user: {
+              id: updatedUser.id,
+              email: updatedUser.emailAddresses[0]?.emailAddress,
+            },
+          };
+        } catch (clerkError) {
+          console.error("[FACULTY UPDATE-METADATA] Clerk error:", clerkError);
+          return serverError("Failed to update user metadata in Clerk");
+        }
+      } catch (error) {
+        console.error("[FACULTY UPDATE-METADATA] Error:", error);
+        return serverError(
+          "Failed to update profile",
+          error instanceof Error ? error.message : "Unknown error"
+        );
+      }
     },
     {
-      body: t.Any(),
+      body: t.Object({
+        metadata: t.Record(t.String(), t.Any()),
+      }),
     }
   );

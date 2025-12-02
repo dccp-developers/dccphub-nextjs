@@ -11,8 +11,6 @@ import {
   GraduationCap,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
 import { getClassColor } from "../_utils/colors";
 
 type ClassDetails = {
@@ -30,44 +28,37 @@ type ClassDetails = {
 };
 
 interface ScheduleItem {
-  id: string;
-  dayOfWeek: string;
-  startTime: string;
-  endTime: string;
-  room: string;
+  id?: string;
+  day_of_week?: string;
+  dayOfWeek?: string;
+  start_time?: string;
+  startTime?: string;
+  end_time?: string;
+  endTime?: string;
+  room?: string | { id?: string; name?: string; building?: string; floor?: string; capacity?: number };
 }
 
-export function ClassHeader({ classDetails }: { classDetails: ClassDetails }) {
-  const params = useParams();
-  const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
-  const [loading, setLoading] = useState(true);
+interface ClassHeaderProps {
+  classDetails: ClassDetails;
+  schedule?: ScheduleItem[];
+}
 
-  const classId = params?.classId as string;
+export function ClassHeader({ classDetails, schedule = [] }: ClassHeaderProps) {
+  // Ensure schedule is always an array
+  const scheduleArray = Array.isArray(schedule) ? schedule : [];
 
-  useEffect(() => {
-    async function fetchSchedule() {
-      if (!classId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await fetch(
-          `/api/faculty/classes/${classId}/schedule`,
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setSchedule(data.schedule || []);
-        }
-      } catch (error) {
-        console.error("Error fetching schedule:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchSchedule();
-  }, [classId]);
+  // Transform schedule data to match expected format
+  const transformedSchedule = scheduleArray.map((item) => ({
+    id: item.id || Math.random().toString(36).substr(2, 9),
+    dayOfWeek: item.dayOfWeek || item.day_of_week || "",
+    startTime: item.startTime || item.start_time || "",
+    endTime: item.endTime || item.end_time || "",
+    room: item.room
+      ? typeof item.room === 'string'
+        ? item.room
+        : item.room.name || `${item.room.building || ''} ${item.room.floor || ''}`.trim()
+      : "",
+  }));
 
   // Sort schedule by day order
   const dayOrder = [
@@ -79,7 +70,7 @@ export function ClassHeader({ classDetails }: { classDetails: ClassDetails }) {
     "Saturday",
     "Sunday",
   ];
-  const sortedSchedule = [...schedule].sort((a, b) => {
+  const sortedSchedule = [...transformedSchedule].sort((a, b) => {
     const dayDiff =
       dayOrder.indexOf(a.dayOfWeek) - dayOrder.indexOf(b.dayOfWeek);
     if (dayDiff !== 0) return dayDiff;
@@ -161,7 +152,7 @@ export function ClassHeader({ classDetails }: { classDetails: ClassDetails }) {
                   <h3 className="font-semibold text-sm">Class Schedule</h3>
                 </div>
 
-                {!loading && sortedSchedule.length > 0 ? (
+                {sortedSchedule.length > 0 ? (
                   <div className="space-y-3">
                     {sortedSchedule.map((item) => (
                       <div key={item.id} className="text-sm">
@@ -185,7 +176,7 @@ export function ClassHeader({ classDetails }: { classDetails: ClassDetails }) {
                   </div>
                 ) : (
                   <div className="text-sm text-muted-foreground py-2 text-center">
-                    {loading ? "Loading schedule..." : "No schedule set"}
+                    No schedule set
                   </div>
                 )}
               </div>

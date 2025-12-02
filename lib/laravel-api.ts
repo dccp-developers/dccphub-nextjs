@@ -1,32 +1,6 @@
 // Laravel API client for Sanctum authentication
 const LARAVEL_API_BASE_URL = process.env.DCCP_API_URL || "http://localhost:8000";
 const LARAVEL_API_TOKEN = process.env.DCCP_API_TOKEN || "26|LAwmlRhI27abHoZKwOUwXDbLZssqY2uoHlk7smInb7c0a62b";
-import { toast } from "sonner";
-
-// Helper function to handle toasts in both client/server components
-const showToast = {
-    error: (message: string, options?: any) => {
-        try {
-            toast.error(message, options);
-        } catch (err) {
-            console.error("[TOAST ERROR]: Could not show toast:", err);
-        }
-    },
-    success: (message: string, options?: any) => {
-        try {
-            toast.success(message, options);
-        } catch (err) {
-            console.error("[TOAST ERROR]: Could not show toast:", err);
-        }
-    },
-    info: (message: string, options?: any) => {
-        try {
-            toast.info(message, options);
-        } catch (err) {
-            console.error("[TOAST ERROR]: Could not show toast:", err);
-        }
-    },
-};
 
 interface NextFetchRequestConfig {
     revalidate?: number | false;
@@ -265,32 +239,9 @@ class LaravelApiClient {
                 // Special handling for faculty not found (404)
                 if (response.status === 404 && endpoint.includes("/api/faculties/")) {
                     const facultyId = endpoint.split("/").pop();
-                    showToast.error("Faculty Not Found", {
-                        description: `Faculty with ID "${facultyId}" does not exist in Laravel database. Please check faculty ID in your Clerk metadata.`,
-                        action: {
-                            label: "Test with Sample ID",
-                            onClick: () => {
-                                showToast.info("Testing with sample faculty ID '1'...");
-                                // Test with a known sample faculty ID
-                                return this.getFaculty("1");
-                            },
-                        },
-                    });
+                    console.error(`[LARAVEL API] Faculty not found: ${facultyId}`);
                     throw new Error(`Faculty not found: ${facultyId}`);
                 }
-
-                // Show general error toast
-                showToast.error(`API Error: ${response.status} - ${response.statusText}`, {
-                    description: "Failed to fetch data from Laravel API",
-                    action: {
-                        label: "Retry",
-                        onClick: () => {
-                            toast.info("Retrying...");
-                            // Retry request
-                            return this.request<T>(endpoint, options);
-                        },
-                    },
-                });
 
                 throw new Error(`Laravel API error: ${response.status} ${response.statusText}`);
             }
@@ -298,28 +249,13 @@ class LaravelApiClient {
             const data = await response.json();
             console.log(`[LARAVEL API] Response from ${endpoint}:`, data);
 
-            // Show success toast for successful requests (only for non-GET requests)
-            if (options.method && options.method !== "GET") {
-                showToast.success("Operation completed successfully");
-            }
-
             return data;
         } catch (error) {
             console.error(`[LARAVEL API] Request failed for ${endpoint}:`, error);
 
-            // Show network error toast
+            // Log network errors
             if (error instanceof Error && error.message.includes("fetch failed")) {
-                showToast.error("Network Error", {
-                    description: "Unable to connect to Laravel API. Please check if the server is running.",
-                    action: {
-                        label: "Reload",
-                        onClick: () => window.location.reload(),
-                    },
-                });
-            } else {
-                showToast.error("Request Failed", {
-                    description: error instanceof Error ? error.message : "Unknown error occurred",
-                });
+                console.error("Network Error: Unable to connect to Laravel API. Please check if the server is running.");
             }
 
             throw error;
@@ -333,11 +269,9 @@ class LaravelApiClient {
         try {
             return await this.request<LaravelFaculty>(`/api/faculties/${facultyId}`, options);
         } catch (error) {
-            // If faculty not found, try with sample ID for testing
-            if (error instanceof Error && error.message.includes("Faculty not found")) {
-                console.log("[LARAVEL API] Faculty not found, trying with sample ID...");
-                return await this.request<LaravelFaculty>(`/api/faculties/1`, options);
-            }
+            // If faculty not found, don't try fallback - throw the original error
+            // This will redirect user to onboarding to complete their setup properly
+            console.error("[LARAVEL API] Faculty not found with ID:", facultyId);
             throw error;
         }
     }

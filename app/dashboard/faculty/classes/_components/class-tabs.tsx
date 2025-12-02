@@ -8,15 +8,14 @@ import { GradesTab } from "./grades-tab";
 import { useParams } from "next/navigation";
 
 interface ClassTabsProps {
+  classId: string;
   averageGrade?: string;
   latestResource?: any;
   recentResources?: any[];
+  enrolledStudents?: any[];
 }
 
-export function ClassTabs({ averageGrade, latestResource, recentResources }: ClassTabsProps) {
-  const params = useParams();
-  const classId = params?.classId as string;
-
+export function ClassTabs({ classId, averageGrade, latestResource, recentResources, enrolledStudents = [] }: ClassTabsProps) {
   return (
     <div className="w-full">
       <Tabs defaultValue="stream" className="w-full">
@@ -66,7 +65,7 @@ export function ClassTabs({ averageGrade, latestResource, recentResources }: Cla
           </TabsContent>
 
           <TabsContent value="people" className="mt-0 animate-in fade-in-50 duration-300">
-            <PeopleTab />
+            <PeopleTab enrolledStudents={enrolledStudents} />
           </TabsContent>
 
           <TabsContent value="grades" className="mt-0 animate-in fade-in-50 duration-300">

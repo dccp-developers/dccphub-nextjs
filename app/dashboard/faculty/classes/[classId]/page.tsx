@@ -2,164 +2,56 @@ import { ClassHeader } from "../_components/class-header";
 import { ClassTabs } from "../_components/class-tabs";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
+import { ClassDetailHeaderSkeleton } from "../../_components/skeletons/class-detail-header-skeleton";
+import { ClassTabsSkeleton } from "../../_components/skeletons/class-tabs-skeleton";
+import { laravelApi } from "@/lib/laravel-api";
 
-async function getClassDetails(classId: string, facultyId: string) {
+async function getClassDetails(classId: string) {
   try {
-    const classInfo = await prisma.classes.findFirst({
-      where: {
-        id: parseInt(classId),
-        faculty_id: facultyId,
-      },
-      select: {
-        id: true,
-        subject_code: true,
-        section: true,
-        semester: true,
-        school_year: true,
-        academic_year: true,
-        maximum_slots: true,
-        course_codes: true,
-        classification: true,
-        grade_level: true,
-        subject: {
-          select: {
-            code: true,
-            title: true,
-            units: true,
-            lecture: true,
-            laboratory: true,
-          },
-        },
-      },
-    });
+    // Use Laravel API to get class details
+    const classDetails = await laravelApi.getClassDetails(parseInt(classId));
 
-    if (!classInfo) {
+    if (!classDetails || !classDetails.data) {
       return null;
     }
 
-    // Get enrolled students count
-    const enrolledCount = await prisma.subject_enrollments.count({
-      where: {
-        class_id: classInfo.id,
-        school_year: classInfo.school_year || undefined,
-        semester: classInfo.semester ? parseInt(classInfo.semester) : undefined,
-      },
-    });
+    const data = classDetails.data;
 
-    // Get enrolled students with grades
-    const enrolledStudents = await prisma.subject_enrollments.findMany({
-      where: {
-        class_id: classInfo.id,
-        school_year: classInfo.school_year || undefined,
-        semester: classInfo.semester ? parseInt(classInfo.semester) : undefined,
-      },
-      select: {
-        student_id: true,
-        grade: true,
-      },
-    });
+    // Handle subject_information - filter out null values
+    const subjectInfo = data.subject_information && Array.isArray(data.subject_information)
+      ? data.subject_information.filter(s => s !== null)
+      : [];
 
-    // Calculate average grade
-    const gradesWithValues = enrolledStudents
-      .map((s) => s.grade)
-      .filter((grade): grade is number => grade !== null && grade > 0);
+    // Handle enrolled students - extract student object from each enrollment
+    const enrolledStudentsList = data.enrolled_students?.map(e => e.student) || [];
 
-    const averageGrade =
-      gradesWithValues.length > 0
-        ? (
-            gradesWithValues.reduce((sum, grade) => sum + grade, 0) /
-            gradesWithValues.length
-          ).toFixed(2)
-        : "N/A";
-
-    // Get attendance rate
-    const totalAttendance = await prisma.attendances.count({
-      where: {
-        class_id: classInfo.id,
-      },
-    });
-
-    const presentAttendance = await prisma.attendances.count({
-      where: {
-        class_id: classInfo.id,
-        status: "present",
-      },
-    });
-
-    const attendanceRate =
-      totalAttendance > 0
-        ? `${Math.round((presentAttendance / totalAttendance) * 100)}%`
-        : "N/A";
-
-    // Get recent resources (top 5 attachments from announcements)
-    const announcementsWithAttachments = await prisma.announcements.findMany({
-      where: {
-        class_id: classInfo.id,
-        attachments: {
-          not: Prisma.JsonNull,
-        },
-      },
-      orderBy: {
-        created_at: "desc",
-      },
-      select: {
-        attachments: true,
-        created_at: true,
-      },
-      take: 10, // Get more announcements to ensure we have 5 files
-    });
-
-    const recentResources: Array<{
-      name: string;
-      type: string;
-      url: string;
-      date: Date;
-      size?: number;
-    }> = [];
-
-    // Flatten all attachments from announcements
-    for (const announcement of announcementsWithAttachments) {
-      if (announcement.attachments) {
-        const attachments = announcement.attachments as any[];
-        for (const attachment of attachments) {
-          recentResources.push({
-            name: attachment.name,
-            type: attachment.type,
-            url: attachment.url,
-            size: attachment.size,
-            date: announcement.created_at,
-          });
-          if (recentResources.length >= 5) break;
-        }
-        if (recentResources.length >= 5) break;
-      }
-    }
-
-    const latestResource = recentResources.length > 0 ? recentResources[0] : null;
+    // Handle schedule
+    const schedule = data.schedule_information?.schedules || [];
 
     return {
-      id: classInfo.id,
-      code: classInfo.subject?.code || classInfo.subject_code || "N/A",
-      name: classInfo.subject?.title || "N/A",
-      section: classInfo.section || "N/A",
-      credits: Number(classInfo.subject?.units) || 0,
-      semester: classInfo.semester === "1" ? "1st Semester" : "2nd Semester",
-      year: classInfo.school_year || "N/A",
-      enrolledStudents: enrolledCount,
-      capacity: classInfo.maximum_slots || 0,
-      averageGrade,
-      attendanceRate,
-      courseCodes: classInfo.course_codes,
-      classification: classInfo.classification,
-      gradeLevel: classInfo.grade_level,
-      lecture: Number(classInfo.subject?.lecture) || 0,
-      laboratory: Number(classInfo.subject?.laboratory) || 0,
-      latestResource,
-      recentResources,
+      id: data.id,
+      code: data.class_information?.subject_code || "N/A",
+      name: subjectInfo[0]?.subject_title || subjectInfo[0]?.title || data.class_information?.subject_code || "N/A",
+      section: data.class_information?.section || "N/A",
+      credits: subjectInfo[0]?.units || 0,
+      semester: data.class_information?.formatted_semester || "N/A",
+      year: data.class_information?.formatted_academic_year || "N/A",
+      enrolledStudents: parseInt(data.class_information?.enrolled_students || "0"),
+      capacity: data.class_information?.maximum_slots || 0,
+      averageGrade: "N/A",
+      attendanceRate: "N/A",
+      courseCodes: data.course_information?.formatted_course_codes || "",
+      classification: data.classification || "",
+      gradeLevel: data.shs_information?.grade_level || "",
+      lecture: subjectInfo[0]?.lecture || 0,
+      laboratory: subjectInfo[0]?.laboratory || 0,
+      latestResource: null,
+      recentResources: [],
+      enrolledStudentsList,
+      schedule,
     };
   } catch (error) {
     console.error("Error fetching class details:", error);
@@ -180,28 +72,20 @@ export default async function ClassDetailPage({
 
   const client = await clerkClient();
   const user = await client.users.getUser(userId);
-  const userEmail = user.emailAddresses[0]?.emailAddress;
+  const userRole = user.publicMetadata?.role as string | undefined;
+  const facultyId = user.publicMetadata?.facultyId as string | undefined;
 
-  if (!userEmail) {
-    redirect("/sign-in");
+  // Verify user is faculty
+  if (userRole !== "faculty") {
+    redirect("/onboarding");
   }
 
-  // Find faculty by email
-  const faculty = await prisma.faculty.findUnique({
-    where: {
-      email: userEmail,
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  if (!faculty) {
+  if (!facultyId) {
     redirect("/onboarding");
   }
 
   const { classId } = await params;
-  const classDetails = await getClassDetails(classId, faculty.id);
+  const classDetails = await getClassDetails(classId);
 
   if (!classDetails) {
     return (
@@ -220,13 +104,19 @@ export default async function ClassDetailPage({
 
   return (
     <div className="flex flex-col h-full">
-      <ClassHeader classDetails={classDetails} />
+      <Suspense fallback={<ClassDetailHeaderSkeleton />}>
+        <ClassHeader classDetails={classDetails} schedule={classDetails.schedule} />
+      </Suspense>
       <div className="flex-grow">
-        <ClassTabs
-          averageGrade={classDetails.averageGrade}
-          latestResource={classDetails.latestResource}
-          recentResources={classDetails.recentResources}
-        />
+        <Suspense fallback={<ClassTabsSkeleton />}>
+          <ClassTabs
+            classId={classId}
+            averageGrade={classDetails.averageGrade}
+            latestResource={classDetails.latestResource}
+            recentResources={classDetails.recentResources}
+            enrolledStudents={classDetails.enrolledStudentsList}
+          />
+        </Suspense>
       </div>
     </div>
   );

@@ -122,6 +122,14 @@ export default function OnboardingPage() {
     setSelectedRole(role);
     setStep("validate");
     setMessage(null);
+
+    // Show info message for faculty role
+    if (role === "faculty") {
+      setMessage({
+        type: "success",
+        text: "Faculty selected! You'll need to verify your faculty information using your Faculty Code.",
+      });
+    }
   };
 
   const handleValidateUser = async (e: React.FormEvent) => {
@@ -311,13 +319,33 @@ export default function OnboardingPage() {
           <CardDescription className="text-base">
             {step === "role" &&
               "Please select your role to continue with the onboarding process."}
-            {step === "validate" &&
+            {step === "validate" && selectedRole === "faculty" && !user?.publicMetadata?.facultyId && (
+                <span className="text-blue-700 font-medium">
+                  Complete your faculty setup by verifying your information.
+                </span>
+              )}
+            {step === "validate" && !(selectedRole === "faculty" && !user?.publicMetadata?.facultyId) &&
               `Please enter your ${selectedRole === "student" ? "Student ID" : "Faculty Code"} and email to verify your account.`}
             {step === "complete" &&
               "Just one more step! Add your contact information to access the dashboard."}
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Show message if user has role but needs to complete setup */}
+          {step === "validate" && selectedRole === "faculty" && !validatedFaculty && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <p className="font-medium">Complete Your Faculty Setup</p>
+                  <p className="mt-1">
+                    We couldn't find your faculty information. Please verify your account using your Faculty Code and email address to complete your profile.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {step === "role" && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <button
@@ -406,10 +434,11 @@ export default function OnboardingPage() {
                     className="text-base"
                   />
                   <p className="text-xs text-gray-500">
-                    Enter your{" "}
                     {selectedRole === "student"
-                      ? "numeric student ID"
-                      : "faculty code"}
+                      ? "Enter your numeric student ID"
+                      : selectedRole === "faculty" && !user?.publicMetadata?.facultyId
+                      ? "Enter your faculty code to verify your information"
+                      : "Enter your faculty code"}
                   </p>
                 </div>
               </div>
@@ -423,9 +452,9 @@ export default function OnboardingPage() {
                   }`}
                 >
                   {message.type === "success" ? (
-                    <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
                   ) : (
-                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                   )}
                   <div>
                     <p className="font-medium">{message.text}</p>
@@ -559,9 +588,9 @@ export default function OnboardingPage() {
                   }`}
                 >
                   {message.type === "success" ? (
-                    <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5" />
                   ) : (
-                    <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                   )}
                   <p className="font-medium">{message.text}</p>
                 </div>

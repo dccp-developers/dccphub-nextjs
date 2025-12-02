@@ -4,8 +4,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { UserPlus, Mail } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 
 interface Person {
@@ -15,45 +13,20 @@ interface Person {
   role: "teacher" | "student";
 }
 
-export function PeopleTab() {
-  const params = useParams();
+interface PeopleTabProps {
+  enrolledStudents?: any[];
+}
+
+export function PeopleTab({ enrolledStudents = [] }: PeopleTabProps) {
   const { user } = useUser();
-  const [students, setStudents] = useState<Person[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  const classId = params?.classId as string;
-  const facultyId = user?.publicMetadata?.facultyId as string | undefined;
-
-  useEffect(() => {
-    async function fetchStudents() {
-      if (!facultyId || !classId) {
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const response = await fetch(
-          `/api/faculty/classes/${classId}/students?facultyId=${facultyId}`,
-        );
-        if (response.ok) {
-          const data = await response.json();
-          const mappedStudents = (data.students || []).map((s: any) => ({
-            id: s.id,
-            name: s.name,
-            avatar: s.avatar,
-            role: "student",
-          }));
-          setStudents(mappedStudents);
-        }
-      } catch (error) {
-        console.error("Error fetching students:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchStudents();
-  }, [facultyId, classId]);
+  // Transform enrolled students to match Person interface
+  const students: Person[] = enrolledStudents.map((s: any) => ({
+    id: s.id || Math.random().toString(36).substr(2, 9),
+    name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.student_id || "Unknown Student",
+    avatar: s.avatar_url,
+    role: "student" as const,
+  }));
 
   const teachers: Person[] = [
     {
@@ -107,9 +80,7 @@ export function PeopleTab() {
         </div>
         <Separator className="bg-primary/20 mb-4" />
         
-        {loading ? (
-          <div className="py-8 text-center text-muted-foreground">Loading students...</div>
-        ) : students.length === 0 ? (
+        {students.length === 0 ? (
           <div className="py-8 text-center text-muted-foreground">
             No students enrolled yet
           </div>

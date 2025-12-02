@@ -24,6 +24,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { laravelApi, type LaravelStudent } from "@/lib/laravel-api";
+import { StudentCardSkeleton } from "../_components/skeletons/student-card-skeleton";
 
 export default function FacultyStudentsPage() {
   const router = useRouter();
@@ -175,8 +176,8 @@ export default function FacultyStudentsPage() {
       {/* Student List */}
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i} className="h-64 animate-pulse bg-muted/20" />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <StudentCardSkeleton key={i} />
           ))}
         </div>
       ) : (

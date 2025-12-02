@@ -10,7 +10,10 @@ import { laravelApi, type LaravelGrade } from "@/lib/laravel-api";
 import { useUser } from "@clerk/nextjs";
 import { Download, Edit, FileText, Search, TrendingUp } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { GradesStatsCardSkeleton } from "../_components/skeletons/grades-stats-card-skeleton";
+import { GradesTableRowSkeleton } from "../_components/skeletons/grades-table-row-skeleton";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface GradeData {
     id: number;
@@ -126,9 +129,9 @@ export default function FacultyGradesPage() {
             {/* Loading State */}
             {loading && (
                 <div className="grid gap-4 md:grid-cols-3">
-                    {[1, 2, 3].map(i => (
-                        <Card key={i} className="h-32 animate-pulse bg-muted/20" />
-                    ))}
+                    <GradesStatsCardSkeleton />
+                    <GradesStatsCardSkeleton />
+                    <GradesStatsCardSkeleton />
                 </div>
             )}
 
@@ -228,34 +231,42 @@ export default function FacultyGradesPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredStudents.map(student => (
-                                        <TableRow key={student.id}>
-                                            <TableCell className="font-medium">{student.student_id}</TableCell>
-                                            <TableCell>
-                                                {student.first_name} {student.last_name}
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                {student.prelim_grade ? `${student.prelim_grade}%` : "N/A"}
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                {student.midterm_grade ? `${student.midterm_grade}%` : "N/A"}
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                {student.finals_grade ? `${student.finals_grade}%` : "N/A"}
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                {student.total_average ? `${student.total_average}%` : "N/A"}
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                <Badge variant="outline">{student.remarks || "N/A"}</Badge>
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                <Button variant="ghost" size="sm">
-                                                    <Edit className="h-4 w-4" />
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
+                                    {loading ? (
+                                        Array.from({ length: 5 }).map((_, i) => (
+                                            <TableRow key={i}>
+                                                <GradesTableRowSkeleton />
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        filteredStudents.map(student => (
+                                            <TableRow key={student.id}>
+                                                <TableCell className="font-medium">{student.student_id}</TableCell>
+                                                <TableCell>
+                                                    {student.first_name} {student.last_name}
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    {student.prelim_grade ? `${student.prelim_grade}%` : "N/A"}
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    {student.midterm_grade ? `${student.midterm_grade}%` : "N/A"}
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    {student.finals_grade ? `${student.finals_grade}%` : "N/A"}
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    {student.total_average ? `${student.total_average}%` : "N/A"}
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    <Badge variant="outline">{student.remarks || "N/A"}</Badge>
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    <Button variant="ghost" size="sm">
+                                                        <Edit className="h-4 w-4" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
                                 </TableBody>
                             </Table>
                         </div>
@@ -288,6 +299,25 @@ export default function FacultyGradesPage() {
                                     </div>
                                 );
                             })}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Loading Skeleton for Grade Distribution */}
+            {loading && (
+                <Card>
+                    <CardHeader>
+                        <Skeleton className="h-6 w-48" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <div key={i} className="text-center p-4 border rounded-lg">
+                                    <Skeleton className="h-8 w-8 mx-auto mb-2" />
+                                    <Skeleton className="h-4 w-16 mx-auto" />
+                                </div>
+                            ))}
                         </div>
                     </CardContent>
                 </Card>

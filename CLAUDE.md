@@ -2,344 +2,268 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
-
-This is a **School Management Information System (MIS)** built with Next.js 16, supporting role-based workflows for students and faculty including enrollment, grading, attendance, announcements, and class management.
-
-**Note**: The README mentions Better Auth and Polar.sh, but the actual implementation uses **Clerk** for authentication. The codebase appears to be built on top of a SaaS starter kit template that has been heavily customized for educational institution management.
-
-Always use context7 when I need code generation, setup or configuration steps, or
-library/API documentation. This means you should automatically use the Context7 MCP
-tools to resolve library id and get library docs without me having to explicitly ask.
-
 ## Development Commands
 
+The project uses **Bun** as the primary package manager. All commands can be run with either `bun` :
+
 ```bash
-# Development
-npm run dev          # Start dev server with Turbopack
-npm run build        # Production build
-npm run start        # Start production server
-npm run lint         # Run ESLint
+# Development server with Turbopack
+bun run dev
 
-# Database
-npx prisma generate  # Generate Prisma Client
-npx prisma db push   # Push schema changes to database
-npx prisma studio    # Open Prisma Studio GUI
-```
 
-## Architecture Overview
+# Production build
+bun run build
 
-### Authentication & Authorization
 
-**Clerk Authentication** (not Better Auth):
+# Start production server
+bun run start
 
--   Primary auth provider with pre-built components
--   After Clerk authentication, users complete a 3-step onboarding flow:
-    1. **Role Selection**: Choose "student" or "faculty"
-    2. **Validation**: Verify email + Student ID or Faculty Code against database
-    3. **Phone Number**: Add contact information
--   Role and user data stored in Clerk's `publicMetadata` for performance
--   See `app/onboarding/page.tsx` for onboarding logic
 
-**Middleware-based RBAC**:
-
--   File: `middleware.ts`
--   Route protection based on role in Clerk metadata
--   Student routes: `/dashboard/subjects`, `/dashboard/grades`, `/dashboard/attendance`
--   Faculty routes: `/dashboard/faculty/classes`, `/dashboard/faculty/students`
--   Automatic redirection prevents cross-role access
-
-**API Authentication Pattern**:
-
-```typescript
-const { userId } = await auth(); // Clerk auth
-if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-const client = await clerkClient();
-const user = await client.users.getUser(userId);
-const userEmail = user.emailAddresses[0]?.emailAddress;
-
-// Query database using email to get student/faculty record
-const student = await prisma.students.findUnique({
-    where: { email: userEmail },
-});
-```
-
-### Database Architecture
-
-**PostgreSQL with Prisma ORM**:
-
--   190 models in `prisma/schema.prisma` (3,436 lines)
--   Neon PostgreSQL (serverless) with connection pooling
--   Database client singleton: `lib/prisma.ts`
-
-**Key Model Domains**:
-
-**Students**:
-
--   `students`: Core student records with personal info, contacts (JSON), course_id
--   `student_enrollment`: Semester-based enrollment with downpayment, payment_method
--   `subject_enrollments`: Links students to specific class sections with grades
--   Soft delete pattern: `deleted_at` field
-
-**Faculty**:
-
--   `faculty`: Faculty members with UUID primary key, faculty_code (unique)
--   Fields: name, email, phone, department, office_hours, biography, status
-
-**Classes & Subjects**:
-
--   `classes`: Class sections with faculty_id, subject_code, semester, school_year, maximum_slots
--   `subject`: Subject definitions with code, title, units, lecture/lab hours
--   `subject_enrollments`: Junction table for student-class relationships
-
-**Academic Configuration**:
-
--   `general_settings`: Global config (current semester, curriculum_year, school dates, feature flags)
--   School year calculated from school_starting_date and school_ending_date
-
-**Other Important Models**:
-
--   `announcements`: Class announcements with attachments (JSON), class_id
--   `attendances`: Student attendance tracking
--   `account_balance`: Student fee and payment tracking by semester
--   `additional_fees`: Dynamic fee structures
-
-**Important Patterns**:
-
--   **Temporal Filtering**: Everything filtered by semester + academic_year + school_year
--   **Soft Deletes**: Always check `deleted_at: null` in queries
--   **JSON Fields**: contacts, attachments, subject_enrolled stored as JSON
--   **Mixed ID Types**: BigInt (legacy), Int, UUID, String depending on table domain
--   **BigInt Serialization**: Convert BigInt to String for JSON responses
-
-### Academic Period Management
-
-**Global State**: `SemesterContext` (`contexts/semester-context.tsx`)
-
--   Manages selected semester and school year across the entire app
--   Persisted to localStorage
--   Used for filtering enrollments, classes, grades, etc.
-
-**Helper Functions** (`lib/enrollment.ts`):
-
--   `getCurrentAcademicSettings()`: Fetches current semester/school_year from general_settings
--   `getStudentEnrollmentStatus()`: Checks if student enrolled for period
--   `formatSchoolYear()`: Converts date range to "YYYY - YYYY" format
--   `extractYear()`: Parses year from "YYYY-MM-DD HH:MM:SS" format
-
-**Academic Period Selector**:
-
--   Component: `AcademicPeriodSelector`
--   Available periods from `GET /api/academic-periods`
-
-### File Storage (Cloudflare R2)
-
-**Setup** (`lib/r2.ts`):
-
--   S3-compatible API using `@aws-sdk/client-s3`
--   Endpoint: `https://{ACCOUNT_ID}.r2.cloudflarestorage.com`
--   Environment variables: `CLOUDFLARE_ACCOUNT_ID`, `R2_UPLOAD_IMAGE_ACCESS_KEY_ID`, etc.
-
-**Upload Pattern**:
-
-```typescript
-uploadFileToR2(file: File, folder: string = "uploads")
-// Returns: { success: true, key: "uploads/timestamp_filename.ext" }
-```
-
-**Usage**:
-
--   Faculty announcements with multiple file attachments
--   Files uploaded to R2, URLs stored in `announcements.attachments` (JSON array)
--   Public URL pattern: `https://pub-{hash}.r2.dev/{key}`
-
-### API Route Patterns
-
-**Student APIs**:
-
--   `POST /api/students/validate`: Validate student ID + email
--   `POST /api/students/update-metadata`: Update Clerk publicMetadata
--   `GET /api/student/subjects`: Enrolled subjects for current semester
--   `GET /api/student/checklist`: Curriculum checklist
--   `GET /api/enrollment-status`: Check enrollment for academic period
-
-**Faculty APIs**:
-
--   `GET /api/faculty/classes`: Faculty's classes for current semester/year
--   `GET /api/faculty/classes/[classId]/students`: Students in a class
--   `GET /api/faculty/classes/[classId]/grades`: Get grades for a class
--   `POST /api/faculty/classes/[classId]/grades`: Update grades
--   `POST /api/faculty/classes/[classId]/grades/finalize`: Finalize grades
--   `GET /api/faculty/classes/[classId]/announcements`: Class announcements
--   `POST /api/faculty/classes/[classId]/announcements`: Create announcement with R2 file upload
-
-**Utility APIs**:
-
--   `GET /api/academic-periods`: Available periods from general_settings
--   `GET /api/schedule`: Class schedules
--   `POST /api/chat`: OpenAI chatbot with web search capability
-
-### App Structure
+# Lint code
+bun run lint
 
 ```
-app/
-├── sign-in/[[...rest]]/          # Clerk SignIn component
-├── sign-up/[[...rest]]/          # Clerk SignUp component
-├── onboarding/                   # Custom 3-step role verification
-├── dashboard/
-│   ├── layout.tsx               # SemesterProvider, SidebarProvider, AppSidebar
-│   ├── student/                 # Student dashboard
-│   ├── faculty/                 # Faculty dashboard
-│   ├── subjects/                # Shared route (role-based data)
-│   ├── grades/                  # Shared route
-│   ├── attendance/              # Shared route
-│   └── announcements/           # Shared route
-└── api/
-    ├── students/                # Student validation & metadata
-    ├── faculty/                 # Faculty operations
-    └── chat/                    # AI chatbot
 
-components/
-├── ui/                          # shadcn/ui components
-└── app-sidebar.tsx              # Role-aware navigation
+Note: TypeScript build errors are ignored during build (`next.config.ts:typescript.ignoreBuildErrors: true`).
 
-contexts/
-└── semester-context.tsx         # Global semester/year state
+## Project Overview
 
-lib/
-├── prisma.ts                    # Database client singleton
-├── enrollment.ts                # Academic period helpers
-└── r2.ts                        # Cloudflare R2 file upload
+This is a **Next.js SaaS starter kit** for an education platform with both **student and faculty portals**. The project combines:
+
+-   **Frontend**: Next.js 16 with App Router, TypeScript, Tailwind CSS v4, and shadcn/ui components
+-   **Backend**: Elysia framework (Bun-optimized) mounted via Next.js catch-all routes
+-   **External API**: Laravel API for authoritative student/faculty data
+-   **Database**: Prisma + PostgreSQL (Neon) for local application data
+-   **Authentication**: Clerk (not Better Auth as README suggests)
+-   **File Storage**: Cloudflare R2 (S3-compatible)
+-   **UI Components**: Radix UI primitives, Tailwind CSS, shadcn/ui
+-   **Additional Features**: OpenAI integration (chatbot), Polar.sh (subscriptions), Uploadthing, PostHog analytics
+
+## High-Level Architecture
+
+### 1. Frontend (Next.js App Router)
+
+**Location**: `app/`
+
+The frontend uses Next.js 16 with the App Router:
+
+-   `app/dashboard/` - Protected dashboard with sidebar navigation
+-   `app/(auth)/` - Authentication pages
+-   `app/api/[[...slugs]]/route.ts` - Mounts Elysia backend
+-   `app/page.tsx` - Landing page
+
+**Dashboard Structure**: `app/dashboard/`
+
+-   `/faculty` - Faculty portal (classes, grades, announcements)
+-   `/student` - Student portal (subjects, schedule, enrollment)
+-   `/schedule` - Class schedules
+-   `/grades` - Grade management (faculty)
+-   `/subjects` - Subject listings (students)
+-   `/_components/` - Dashboard-specific components
+
+**Key Contexts**:
+
+-   `contexts/semester-context.ts` - Academic period/semester state management
+
+### 2. Backend (Elysia Framework)
+
+**Location**: `server/`
+
+The backend is an **Elysia app** (optimized for Bun) that provides type-safe APIs:
+
+```
+server/
+├── index.ts              # Main Elysia app, mounted at /api in Next.js
+├── lib/auth.ts          # Auth helpers (requireAuth, unauthorized)
+└── routes/
+    ├── auth.ts          # Student auth routes
+    ├── students.ts      # Student validation/management
+    ├── faculty.ts       # Faculty routes (classes, grades)
+    ├── faculty-classes.ts # Class-specific operations
+    ├── schedule.ts      # Schedule endpoints
+    ├── academic-periods.ts
+    ├── enrollment.ts    # Student enrollment
+    ├── chat.ts         # AI chat endpoint (OpenAI)
+    ├── upload-image.ts # Image upload (R2)
+    └── debug.ts        # Debug endpoints
 ```
 
-## Important Conventions
+**All routes are prefixed with `/api`** (handled in `server/index.ts`)
 
-### Dual Identity System
+The backend serves two purposes:
 
--   **Clerk**: Handles authentication and session management
--   **Database**: Stores student/faculty business records
--   **Link**: Email address bridges Clerk users to database records
--   **Onboarding**: Validates database record exists before allowing dashboard access
+1. Provides type-safe API with Eden Treaty client for frontend
+2. **Proxies to Laravel API** for authoritative student/faculty data (see `lib/laravel-api.ts`)
 
-### Role-Based Access
+### 3. External Data Sources
 
--   Roles stored in Clerk's `user.publicMetadata.role` ("student" or "faculty")
--   Middleware enforces route-level access based on role
--   UI components conditionally render based on role
--   API endpoints verify role by querying database with user's email
+**Laravel API Integration**: `lib/laravel-api.ts`
 
-### Academic Period Filtering
+-   This is the **source of truth** for student/faculty data
+-   Handles authentication via Sanctum
+-   Provides class details, schedules, enrollment data
+-   Configured via `DCCP_API_URL` and `DCCP_API_TOKEN` in `.env`
 
--   **Always filter by**: semester, academic_year, school_year
--   Use `SemesterContext` for user-selected period
--   Default to current period from `general_settings` table
--   Applies to: enrollments, classes, grades, attendance, announcements
+### 4. File Structure
 
-### Data Serialization
+```
+├── app/                    # Next.js App Router
+│   ├── dashboard/         # Protected dashboard routes
+│   ├── api/               # API routes (mounts Elysia)
+│   ├── sign-in/          # Clerk auth pages
+│   └── sign-up/
+├── components/            # Reusable UI components
+│   ├── ui/               # shadcn/ui components
+│   └── homepage/         # Landing page sections
+├── lib/                   # Utilities and integrations
+│   ├── laravel-api.ts    # Laravel API client
+│   ├── prisma.ts         # Prisma client
+│   ├── r2.ts            # R2 storage config
+│   └── upload-image.ts  # Upload helpers
+├── server/                # Elysia backend
+│   ├── index.ts         # Main app
+│   ├── lib/             # Backend utilities
+│   └── routes/          # API endpoints
+├── prisma/               # Database schema and migrations
+└── hooks/               # React hooks
+```
 
--   BigInt fields must be converted to strings for JSON responses
--   Use custom serialization helpers when returning Prisma query results
--   Example: `JSON.parse(JSON.stringify(data, (_, v) => typeof v === 'bigint' ? v.toString() : v))`
+## Key Technologies & Patterns
 
-### Soft Deletes
+### Authentication
 
--   Many models have `deleted_at` timestamp field
--   Always filter by `WHERE deleted_at IS NULL` in queries
--   Preserves data integrity and audit trail
--   Example: `prisma.students.findMany({ where: { deleted_at: null } })`
+-   **Clerk** for authentication (not Better Auth despite README)
+-   Configured via `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`
+-   Auth pages in `app/sign-in/` and `app/sign-up/`
+
+### Database
+
+-   **Important**: Laravel API is the source of truth, not Prisma
+
+### File Uploads
+
+-   **Cloudflare R2** for file storage (S3-compatible)
+-   Config in `lib/r2.ts`
+-   Upload helper in `lib/upload-image.ts`
+-   Remote patterns configured in `next.config.ts` for R2 and Vercel Storage
+
+### AI Integration
+
+-   OpenAI SDK for chatbot functionality
+-   Chatbot component in `app/dashboard/_components/chatbot.tsx`
+-   Backend endpoint in `server/routes/chat.ts`
+
+### UI Framework
+
+-   **Tailwind CSS v4** with CSS variables for theming
+-   **shadcn/ui** components built on Radix UI
+-   Dark/light mode support via `next-themes`
+-   Custom theme in `tailwind.config.ts`
 
 ## Environment Variables
 
-Required variables (see `.env.example` for full list):
+Required in `.env`:
 
 ```env
 # Database
-DATABASE_URL="postgresql://..."
+DATABASE_URL=postgresql://...
 
-# Clerk Authentication
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
-CLERK_SECRET_KEY="sk_test_..."
+# Clerk Auth
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
 
-# Cloudflare R2 Storage
-CLOUDFLARE_ACCOUNT_ID="..."
-R2_UPLOAD_IMAGE_ACCESS_KEY_ID="..."
-R2_UPLOAD_IMAGE_SECRET_ACCESS_KEY="..."
-R2_UPLOAD_IMAGE_BUCKET_NAME="..."
-R2_PUBLIC_URL="https://pub-{hash}.r2.dev"
+# Laravel API
+DCCP_API_URL=http://localhost:8000
+DCCP_API_TOKEN=...
 
-# OpenAI (for chatbot)
-OPENAI_API_KEY="sk-..."
+# Cloudflare R2
+R2_UPLOAD_IMAGE_ACCESS_KEY_ID=...
+R2_UPLOAD_IMAGE_SECRET_ACCESS_KEY=...
+CLOUDFLARE_ACCOUNT_ID=...
+R2_UPLOAD_IMAGE_BUCKET_NAME=...
 
-# Legacy/Unused (from starter template)
-BETTER_AUTH_SECRET="..."          # Not used - using Clerk instead
-POLAR_ACCESS_TOKEN="..."          # Not used - no Polar.sh integration
+# OpenAI
+OPENAI_API_KEY=...
+
+# Polar.sh (optional)
+POLAR_ACCESS_TOKEN=...
+NEXT_PUBLIC_STARTER_TIER=...
 ```
 
-## Common Development Workflows
+## Common Development Patterns
 
-### Adding a New Student Feature
+### Making API Calls
 
-1. Check if student is enrolled: `getStudentEnrollmentStatus(studentId, semester, schoolYear)`
-2. Query student data: `prisma.students.findUnique({ where: { email, deleted_at: null } })`
-3. Filter by academic period from `SemesterContext`
-4. Protect route in `middleware.ts` if needed
-5. Add navigation item to `AppSidebar` under student role
+**Option 1: Type-safe Eden client** (recommended)
 
-### Adding a New Faculty Feature
+```typescript
+import { api } from "@/lib/api-client";
 
-1. Get faculty record: `prisma.faculty.findUnique({ where: { email } })`
-2. Query classes: Filter by `faculty_id`, `semester`, `school_year`
-3. Protect route in `middleware.ts` with faculty matcher
-4. Add to faculty section in `AppSidebar`
-
-### Working with File Uploads
-
-1. Use FormData on client side for multipart requests
-2. Extract files in API route: `const file = formData.get('file') as File`
-3. Upload to R2: `const result = await uploadFileToR2(file, 'announcements')`
-4. Store file key/URL in database JSON field
-5. Construct public URL: `${R2_PUBLIC_URL}/${key}`
-
-### Querying by Academic Period
-
-1. Get current settings: `const settings = await getCurrentAcademicSettings()`
-2. Use in queries: `where: { semester: settings.semester, school_year: settings.school_year }`
-3. For user-selected period, use `SemesterContext` on client side
-4. Always include deleted_at: null for models with soft deletes
-
-### Updating Clerk Metadata
-
-1. Get clerkClient: `const client = await clerkClient()`
-2. Update metadata: `await client.users.updateUser(userId, { publicMetadata: { role, studentId, ... } })`
-3. Metadata persists across sessions
-4. Access in components via `useUser()` hook
-
-## Database Migrations
-
-When modifying schema:
-
-```bash
-# 1. Edit prisma/schema.prisma
-# 2. Generate Prisma Client
-npx prisma generate
-
-# 3. Push changes to database (development)
-npx prisma db push
-
-# 4. For production, use migrations instead:
-npx prisma migrate dev --name your_migration_name
-npx prisma migrate deploy  # In production
+const { data, error } = await api.faculty.classes.get();
+// All endpoints are type-safe
 ```
 
-## Troubleshooting
+**Option 2: Fetch directly**
 
-**"Unauthorized" errors**: Check Clerk session exists and user has required metadata (role, studentId/facultyId)
+```typescript
+const res = await fetch("/api/faculty/classes", {
+    headers: { Authorization: "..." },
+});
+```
 
-**Empty data queries**: Verify academic period filters match data in database, check soft delete status
+### Database Queries
 
-**File upload failures**: Ensure R2 credentials are set, bucket exists, and CORS is configured for your domain
+```typescript
+import { prisma } from "@/lib/prisma";
 
-**BigInt serialization errors**: Use custom JSON serializer when returning Prisma results with BigInt fields
+const data = await prisma.accounts.findMany({
+    where: { role: "faculty" },
+});
+```
 
-**Route access denied**: Check middleware.ts route matchers and user role in Clerk metadata
+### Laravel API Calls
+
+```typescript
+import { laravelApi } from "@/lib/laravel-api";
+
+const classData = await laravelApi.getClassDetails(classId);
+```
+
+### Adding New Routes
+
+1. **Elysia route** (server-side):
+
+    - Create `server/routes/my-route.ts`
+    - Import and use in `server/index.ts`
+
+2. **Next.js page** (client-side):
+    - Create `app/dashboard/my-feature/page.tsx`
+    - Add to sidebar navigation if needed
+
+## Important Notes
+
+-   **Laravel API is authoritative** - don't store student/faculty core data in Prisma
+-   **React Strict Mode disabled** in `next.config.ts` (`reactStrictMode: false`)
+-   **TypeScript build errors ignored** during build for convenience
+-   Use **Bun** for better performance (package manager and runtime)
+-   The project was originally a SaaS starter but is now an education platform
+-   Components use the `cn()` helper from `lib/utils.ts` for className merging
+-   All API routes are now Elysia-based (old Next.js API routes removed)
+
+## Deployment
+
+-   **Recommended**: Vercel for frontend
+-   Ensure all environment variables are configured
+-   Database: Neon PostgreSQL (recommended)
+-   File Storage: Cloudflare R2
+-   Backend: Runs via Next.js API routes (no separate deployment needed)
+
+## Recent Changes
+
+Latest commits show active development of:
+
+-   Faculty dashboard integration with Laravel API
+-   Elysia backend migration
+-   Student enrollment verification
+-   Academic period management
+-   Grade and curriculum checklist features
