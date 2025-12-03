@@ -151,11 +151,61 @@ export const students = new Elysia({ prefix: "/students" })
   .post(
     "/update-metadata",
     async ({ body }) => {
-      // Add student metadata update logic here
-      return { success: true };
+      try {
+        // Ensure user is authenticated
+        const userId = await requireAuth();
+
+        console.log("[STUDENT UPDATE-METADATA] Starting update for user:", userId);
+
+        const { metadata } = body;
+
+        if (!metadata) {
+          return badRequest("Metadata is required");
+        }
+
+        // Import Clerk client
+        const { clerkClient } = await import("@clerk/nextjs/server");
+
+        try {
+          // Get Clerk client instance
+          const client = await clerkClient();
+
+          // Update user metadata in Clerk
+          const updatedUser = await client.users.updateUserMetadata(userId, {
+            publicMetadata: metadata,
+          });
+
+          console.log("[STUDENT UPDATE-METADATA] Successfully updated metadata");
+
+          return {
+            success: true,
+            user: {
+              id: updatedUser.id,
+              email: updatedUser.emailAddresses[0]?.emailAddress,
+            },
+          };
+        } catch (clerkError) {
+          console.error("[STUDENT UPDATE-METADATA] Clerk error:", clerkError);
+          const errorMessage = clerkError instanceof Error ? clerkError.message : "Unknown Clerk error";
+          console.error("[STUDENT UPDATE-METADATA] Error details:", {
+            message: errorMessage,
+            name: (clerkError as any)?.name,
+            clerkError: JSON.stringify(clerkError, null, 2)
+          });
+          return serverError("Failed to update user metadata in Clerk", errorMessage);
+        }
+      } catch (error) {
+        console.error("[STUDENT UPDATE-METADATA] Error:", error);
+        return serverError(
+          "Failed to update profile",
+          error instanceof Error ? error.message : "Unknown error"
+        );
+      }
     },
     {
-      body: t.Any(),
+      body: t.Object({
+        metadata: t.Record(t.String(), t.Any()),
+      }),
     }
   )
   .get("/test", async () => {

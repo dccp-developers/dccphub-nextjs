@@ -16,7 +16,8 @@ export interface FacultyClass {
     subjectCode: string;
     subjectName: string;
     section: string;
-    semester: string;
+    semester: string; // Normalized for filtering (e.g., "1st", "2nd")
+    originalSemester?: string; // Original format for display (e.g., "1st Semester", "2nd Semester")
     schoolYear: string;
     enrolledStudents: number;
     maximumSlots: number;
@@ -107,7 +108,7 @@ export function ClassCard({ classItem }: ClassCardProps) {
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Calendar className="h-3.5 w-3.5" />
                             <span>
-                                {classItem.schoolYear} • {classItem.semester}
+                                {classItem.schoolYear} • {classItem.originalSemester || classItem.semester}
                             </span>
                         </div>
                     </div>

@@ -2,10 +2,10 @@
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BookOpen, Plus, Search } from "lucide-react";
 import { useState } from "react";
 import { ClassCard, type FacultyClass } from "./class-card";
+import { useSemester } from "@/contexts/semester-context";
 
 interface ClassesListProps {
     initialClasses: FacultyClass[];
@@ -13,8 +13,9 @@ interface ClassesListProps {
 
 export function ClassesList({ initialClasses }: ClassesListProps) {
     const [searchQuery, setSearchQuery] = useState("");
-    const [semesterFilter, setSemesterFilter] = useState("all");
-    const [yearFilter, setYearFilter] = useState("all");
+    const { semester, schoolYear } = useSemester();
+
+    console.log(`🔍 Global Filter: semester="${semester}", schoolYear="${schoolYear}", totalClasses=${initialClasses.length}`);
 
     const filteredClasses = initialClasses.filter(classItem => {
         const matchesSearch =
@@ -22,14 +23,20 @@ export function ClassesList({ initialClasses }: ClassesListProps) {
             classItem.subjectCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
             classItem.section.toLowerCase().includes(searchQuery.toLowerCase());
 
-        const matchesSemester = semesterFilter === "all" || classItem.semester === semesterFilter;
+        // Filter by global academic period
+        const matchesSemester = classItem.semester === semester;
+        const matchesYear = classItem.schoolYear.includes(schoolYear);
 
-        const matchesYear = yearFilter === "all" || classItem.schoolYear === yearFilter;
+        const matches = matchesSearch && matchesSemester && matchesYear;
 
-        return matchesSearch && matchesSemester && matchesYear;
+        if (!matchesSemester || !matchesYear) {
+            console.log(`❌ EXCLUDED: ${classItem.subjectCode} (semester: ${classItem.semester} vs ${semester}, year: ${classItem.schoolYear} vs ${schoolYear})`);
+        }
+
+        return matches;
     });
 
-    const uniqueSchoolYears = Array.from(new Set(initialClasses.map(c => c.schoolYear))).filter(Boolean);
+    console.log(`📊 Global Filter Result: showing ${filteredClasses.length} of ${initialClasses.length} classes for ${semester} semester, ${schoolYear} school year`);
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
@@ -45,7 +52,7 @@ export function ClassesList({ initialClasses }: ClassesListProps) {
                 </Button>
             </div>
 
-            {/* Filters Section */}
+            {/* Search Section */}
             <div className="flex flex-col md:flex-row gap-4 mb-8 items-center">
                 <div className="relative flex-1 w-full">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -55,32 +62,6 @@ export function ClassesList({ initialClasses }: ClassesListProps) {
                         onChange={e => setSearchQuery(e.target.value)}
                         className="pl-10 rounded-full bg-muted/50 border-transparent focus:bg-background transition-colors"
                     />
-                </div>
-                <div className="flex gap-2 w-full md:w-auto">
-                    <Select value={semesterFilter} onValueChange={setSemesterFilter}>
-                        <SelectTrigger className="w-32">
-                            <SelectValue placeholder="Semester" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Semesters</SelectItem>
-                            <SelectItem value="1st">1st Semester</SelectItem>
-                            <SelectItem value="2nd">2nd Semester</SelectItem>
-                            <SelectItem value="summer">Summer</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Select value={yearFilter} onValueChange={setYearFilter}>
-                        <SelectTrigger className="w-32">
-                            <SelectValue placeholder="School Year" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">All Years</SelectItem>
-                            {uniqueSchoolYears.map(year => (
-                                <SelectItem key={year} value={year}>
-                                    {year}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
                 </div>
             </div>
 
@@ -100,7 +81,10 @@ export function ClassesList({ initialClasses }: ClassesListProps) {
                         <p className="text-muted-foreground max-w-md">
                             {searchQuery
                                 ? `No classes found matching "${searchQuery}"`
-                                : "No classes match the selected filters"}
+                                : `No classes found for ${semester} semester, ${schoolYear} school year`}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                            Use the academic period selector in the sidebar to change semester or school year
                         </p>
                     </div>
                 </div>

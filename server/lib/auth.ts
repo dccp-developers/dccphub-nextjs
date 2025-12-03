@@ -51,9 +51,14 @@ export async function setUserAcademicPeriod(
 ): Promise<void> {
   try {
     const client = await clerkClient();
+    // Get current user with all metadata
+    const user = await client.users.getUser(userId);
+    const existingMetadata = user.publicMetadata || {};
+
+    // Update only semester and schoolYear while preserving all other fields
     await client.users.updateUser(userId, {
       publicMetadata: {
-        ...await getUserAcademicPeriod(userId),
+        ...existingMetadata,
         semester: period.semester,
         schoolYear: period.schoolYear,
       },

@@ -1,7 +1,7 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { FacultyDashboardContent } from "./_components/faculty-dashboard-content";
+import { FacultyDashboardClient } from "./_components/faculty-dashboard-client";
 import { FacultyDashboardSkeleton } from "./_components/skeletons/faculty-dashboard-skeleton";
 
 export default async function FacultyDashboardPage() {
@@ -31,7 +31,7 @@ export default async function FacultyDashboardPage() {
 
   return (
     <Suspense fallback={<FacultyDashboardSkeleton />}>
-      <FacultyDashboardContent
+      <FacultyDashboardClient
         facultyId={facultyId}
         firstName={firstName}
         lastName={lastName}

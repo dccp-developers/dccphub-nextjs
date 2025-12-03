@@ -1,3 +1,5 @@
+"use client";
+
 import {
   Card,
   CardContent,
@@ -13,67 +15,156 @@ import {
   TrendingUp,
   Clock,
 } from "lucide-react";
-import { laravelApi, type LaravelFaculty } from "@/lib/laravel-api";
+import { useSemester } from "@/contexts/semester-context";
+import { useEffect, useState } from "react";
+import { useUser } from "@clerk/nextjs";
 
-interface FacultyDashboardContentProps {
+interface FacultyDashboardClientProps {
   facultyId: string;
   firstName?: string;
   lastName?: string;
   department?: string;
-  currentSemester: string;
-  currentSchoolYear: string;
 }
 
-export async function FacultyDashboardContent({
+interface FacultyData {
+  id: string;
+  faculty_id_number: string;
+  first_name: string;
+  last_name: string;
+  middle_name: string;
+  full_name: string;
+  email: string;
+  phone_number: string;
+  department: string;
+  office_hours: string | null;
+  birth_date: string;
+  address_line1: string;
+  biography: string;
+  education: string;
+  courses_taught: string | null;
+  photo_url: string | null;
+  status: string;
+  gender: string;
+  age: number;
+  created_at: string;
+  updated_at: string;
+  classes: Array<{
+    id: number;
+    subject_code: string;
+    subject_title: string;
+    section: string;
+    school_year: string;
+    semester: string;
+    classification: string;
+    maximum_slots: number;
+    grade_level: string;
+    student_count: string;
+    display_info: string;
+  }>;
+  account: string;
+  department_relation: string;
+  class_enrollments_count: number;
+  classes_count: number;
+}
+
+export function FacultyDashboardClient({
   facultyId,
   firstName,
   lastName,
   department,
-  currentSemester,
-  currentSchoolYear,
-}: FacultyDashboardContentProps) {
+}: FacultyDashboardClientProps) {
+  const { semester, schoolYear, isLoading: semesterLoading } = useSemester();
+  const { user, isLoaded: userLoaded } = useUser();
+  const [facultyData, setFacultyData] = useState<FacultyData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [classCount, setClassCount] = useState(0);
+  const [totalStudents, setTotalStudents] = useState(0);
 
-  // Fetch faculty data from Laravel API
-  let facultyData: LaravelFaculty | null = null;
-  let classCount = 0;
-  let totalStudents = 0;
-  let todaySchedule: Array<{
-    subjectCode: string;
-    subjectName: string;
-    startTime: string;
-    endTime: string;
-    room: string;
-    section: string;
-  }> = [];
+  // Fetch faculty data when component mounts or semester/year changes
+  useEffect(() => {
+    if (!facultyId || !userLoaded) return;
 
-  try {
-    // Get faculty data from Laravel API
-    facultyData = await laravelApi.getFaculty(facultyId);
+    async function fetchFacultyData() {
+      try {
+        setIsLoading(true);
+        console.log(`🔄 Fetching faculty data for ${facultyId}, semester: ${semester}, year: ${schoolYear}`);
 
-    // Filter classes by current semester from global selector
-    const filteredClasses = facultyData.data.classes?.filter(cls => {
-      const semester = cls.semester?.toString() || cls.academic_period?.semester?.toString();
-      const schoolYear = cls.school_year?.toString() || cls.academic_period?.school_year?.toString();
-      return semester === currentSemester && schoolYear?.includes(currentSchoolYear);
+        const response = await fetch(`/api/faculty/${facultyId}`, {
+          headers: {
+            Accept: "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch faculty data");
+        }
+
+        const data = await response.json();
+        console.log(`✅ Fetched faculty data:`, data);
+
+        if (data?.data) {
+          setFacultyData(data.data);
+        }
+      } catch (error) {
+        console.error("❌ Error fetching faculty data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchFacultyData();
+  }, [facultyId, userLoaded]);
+
+  // Filter and calculate stats when faculty data or semester/year changes
+  useEffect(() => {
+    if (!facultyData) return;
+
+    // Filter classes by current semester
+    const filteredClasses = facultyData.classes?.filter(cls => {
+      const clsSemester = cls.semester?.toString() || "";
+      const clsSchoolYear = cls.school_year?.toString() || "";
+      const matchesSemester = clsSemester === semester;
+      const matchesYear = clsSchoolYear.includes(schoolYear);
+      return matchesSemester && matchesYear;
     }) || [];
 
-    classCount = filteredClasses.length;
+    const classCount = filteredClasses.length;
+    const totalStudents = filteredClasses.reduce(
+      (sum, cls) => sum + (parseInt(cls.student_count) || 0),
+      0
+    );
 
-    console.log(`📊 Faculty Dashboard - Classes for ${currentSemester} semester: ${classCount}`);
+    console.log(
+      `🔄 Dashboard Filter Changed - Semester ${semester}, Year ${schoolYear}: showing ${classCount} classes, ${totalStudents} students`
+    );
 
-    // Get enrollment count for current semester classes
-    totalStudents = filteredClasses.reduce((sum, cls) => sum + (parseInt(cls.student_count) || 0), 0);
+    setClassCount(classCount);
+    setTotalStudents(totalStudents);
+  }, [facultyData, semester, schoolYear]);
 
-    // TODO: Implement today's schedule fetching from Laravel API
-    // For now, keeping the schedule empty until we have the API endpoint
-    todaySchedule = [];
-  } catch (error) {
-    console.error("Error fetching faculty data from Laravel API:", error);
-
-    // Set defaults if API fails
-    classCount = 0;
-    totalStudents = 0;
-    todaySchedule = [];
+  // Show loading state
+  if (semesterLoading || isLoading || !userLoaded) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="space-y-2">
+          <div className="h-8 bg-muted rounded w-64 animate-pulse" />
+          <div className="h-4 bg-muted rounded w-96 animate-pulse" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="space-y-0 pb-2">
+                <div className="h-4 bg-muted rounded w-24 animate-pulse" />
+              </CardHeader>
+              <CardContent>
+                <div className="h-8 bg-muted rounded w-16 animate-pulse mb-1" />
+                <div className="h-3 bg-muted rounded w-32 animate-pulse" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -84,7 +175,13 @@ export async function FacultyDashboardContent({
           Welcome back, {firstName} {lastName}
         </h1>
         <p className="text-muted-foreground">
-          {department ? `Department of ${department}` : "Faculty Dashboard"} • {currentSemester === "1" ? "1st Semester" : currentSemester === "2" ? "2nd Semester" : currentSemester} {currentSchoolYear}
+          {department ? `Department of ${department}` : "Faculty Dashboard"} •{" "}
+          {semester === "1"
+            ? "1st Semester"
+            : semester === "2"
+            ? "2nd Semester"
+            : semester}{" "}
+          {schoolYear}
         </p>
       </div>
 
@@ -97,20 +194,20 @@ export async function FacultyDashboardContent({
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{classCount}</div>
-            <p className="text-xs text-muted-foreground">Total courses</p>
+            <p className="text-xs text-muted-foreground">
+              {semester === "1" ? "1st" : semester === "2" ? "2nd" : semester} semester classes
+            </p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Students
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Total Students</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{totalStudents}</div>
-            <p className="text-xs text-muted-foreground">Enrolled students</p>
+            <p className="text-xs text-muted-foreground">Enrolled this semester</p>
           </CardContent>
         </Card>
 
@@ -129,9 +226,7 @@ export async function FacultyDashboardContent({
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Attendance Rate
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Attendance Rate</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -155,44 +250,9 @@ export async function FacultyDashboardContent({
             <CardDescription>Your classes for today</CardDescription>
           </CardHeader>
           <CardContent>
-            {todaySchedule.length > 0 ? (
-              <div className="space-y-3">
-                {todaySchedule.map((schedule, index) => (
-                  <div
-                    key={index}
-                    className="p-3 border rounded-lg hover:bg-accent/50 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm truncate">
-                          {schedule.subjectCode}
-                          {schedule.section && ` - ${schedule.section}`}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {schedule.subjectName}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        <span>
-                          {schedule.startTime} - {schedule.endTime}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <BookOpen className="h-3 w-3" />
-                        <span>{schedule.room}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-sm text-muted-foreground text-center py-8">
-                No classes scheduled for today
-              </div>
-            )}
+            <div className="text-sm text-muted-foreground text-center py-8">
+              No classes scheduled for today
+            </div>
           </CardContent>
         </Card>
 

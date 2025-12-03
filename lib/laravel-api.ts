@@ -332,6 +332,16 @@ class LaravelApiClient {
         return results.filter((result): result is LaravelClassDetails => result !== null);
     }
 
+    async getSettings(): Promise<{
+        current_semester: string;
+        current_school_year_start: string;
+        current_school_year_string: string;
+        available_semesters: Record<string, string>;
+        available_school_years: Record<string, string>;
+    }> {
+        return this.request(`/api/settings/service`);
+    }
+
     async markAttendance(attendanceData: Omit<LaravelAttendance, "id">): Promise<void> {
         return this.request<void>(`/api/attendance`, {
             method: "POST",
@@ -452,7 +462,7 @@ export class LaravelApiHelpers {
             subjectCode: classInfo.subject_code || "N/A",
             subjectName: classDetails?.data?.course_information?.formatted_course_codes || "N/A",
             section: classInfo.section || "N/A",
-            semester: classInfo.formatted_semester || "N/A",
+            semester: classInfo.semester || classInfo.formatted_semester || "N/A", // Use raw semester for filtering
             schoolYear: classInfo.formatted_academic_year || "N/A",
             gradeLevel: shsInfo.grade_level || "N/A",
             track: shsInfo.track?.track_name || "N/A",

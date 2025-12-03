@@ -11,6 +11,78 @@ import {
 } from "../lib/auth";
 
 export const faculty = new Elysia({ prefix: "/faculty" })
+  .get(
+    "/:facultyId",
+    async ({ params }) => {
+      try {
+        // Ensure user is authenticated
+        try {
+          await requireAuth();
+        } catch {
+          return unauthorized();
+        }
+
+        const facultyId = params.facultyId;
+
+        if (!facultyId) {
+          return badRequest("Faculty ID is required");
+        }
+
+        console.log(`[FACULTY DETAILS] Fetching faculty: ${facultyId}`);
+
+        // Get the Laravel API URL and token from environment
+        const baseURL = process.env.DCCP_API_URL || "http://localhost:8000";
+        const token = process.env.DCCP_API_TOKEN;
+
+        if (!token) {
+          console.error("[FACULTY DETAILS] DCCP_API_TOKEN not configured");
+          return serverError("API configuration error");
+        }
+
+        // Forward request to Laravel API
+        const response = await fetch(`${baseURL}/api/faculties/${facultyId}`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          console.error(
+            `[FACULTY DETAILS] Laravel API error: ${response.status} ${response.statusText}`
+          );
+          const errorText = await response.text();
+          console.error("[FACULTY DETAILS] Error response:", errorText);
+
+          if (response.status === 404) {
+            return serverError("Faculty not found");
+          }
+
+          return serverError(
+            `Failed to fetch faculty details: ${response.statusText}`
+          );
+        }
+
+        const data = await response.json();
+        console.log("[FACULTY DETAILS] Faculty found:", data?.data?.full_name);
+
+        return data;
+      } catch (error) {
+        console.error("[FACULTY DETAILS] Error fetching faculty details:", error);
+        return serverError(
+          "Internal server error. Please try again later.",
+          error instanceof Error ? error.message : "Unknown error"
+        );
+      }
+    },
+  {
+    params: t.Object({
+      facultyId: t.String(),
+    }),
+  }
+  )
   .get("/classes", async () => {
     try {
       // Get authenticated user
@@ -477,7 +549,7 @@ export const faculty = new Elysia({ prefix: "/faculty" })
           }
 
           console.log("[FACULTY VALIDATE] Success! Faculty found:", {
-            id: facultyData.data.id,
+            id: facultyData.data.faculty_id_number,
             name: `${facultyData.data.first_name} ${facultyData.data.last_name}`,
           });
 
@@ -488,7 +560,7 @@ export const faculty = new Elysia({ prefix: "/faculty" })
               lastName: facultyData.data.last_name,
               middleName: facultyData.data.middle_name,
               email: facultyData.data.email,
-              facultyId: facultyData.data.id.toString(),
+              facultyId: facultyData.data.faculty_id_number?.toString() || facultyData.data.id.toString(),
               facultyCode: facultyData.data.faculty_code,
               department: facultyData.data.department,
               phoneNumber: facultyData.data.phone_number || "",
@@ -537,8 +609,11 @@ export const faculty = new Elysia({ prefix: "/faculty" })
         const { clerkClient } = await import("@clerk/nextjs/server");
 
         try {
+          // Get Clerk client instance
+          const client = await clerkClient();
+
           // Update user metadata in Clerk
-          const updatedUser = await clerkClient.users.updateUserMetadata(userId, {
+          const updatedUser = await client.users.updateUserMetadata(userId, {
             publicMetadata: metadata,
           });
 
@@ -553,7 +628,13 @@ export const faculty = new Elysia({ prefix: "/faculty" })
           };
         } catch (clerkError) {
           console.error("[FACULTY UPDATE-METADATA] Clerk error:", clerkError);
-          return serverError("Failed to update user metadata in Clerk");
+          const errorMessage = clerkError instanceof Error ? clerkError.message : "Unknown Clerk error";
+          console.error("[FACULTY UPDATE-METADATA] Error details:", {
+            message: errorMessage,
+            name: (clerkError as any)?.name,
+            clerkError: JSON.stringify(clerkError, null, 2)
+          });
+          return serverError("Failed to update user metadata in Clerk", errorMessage);
         }
       } catch (error) {
         console.error("[FACULTY UPDATE-METADATA] Error:", error);

@@ -46,6 +46,41 @@ interface FacultyData {
 
 type UserRole = "student" | "faculty" | null;
 
+// Helper function to normalize phone numbers to E.164 format
+const normalizePhoneNumber = (phone: string): string => {
+  // If already in E.164 format, return as is
+  if (phone.startsWith("+")) {
+    return phone;
+  }
+
+  // Remove all non-digit characters
+  const digits = phone.replace(/\D/g, "");
+
+  // Handle Philippine numbers (63 is the country code)
+  // Convert 0XXXXXXXXX to +63XXXXXXXXX
+  if (digits.startsWith("0") && digits.length === 10) {
+    return `+63${digits.substring(1)}`;
+  }
+
+  // If it's an 8-digit number (landline), add +63
+  if (digits.length === 8) {
+    return `+63${digits}`;
+  }
+
+  // If it's a 9-digit number, check if it needs +63 prefix
+  if (digits.length === 9) {
+    return `+63${digits}`;
+  }
+
+  // If it already starts with 63 (without +), add +
+  if (digits.startsWith("63") && digits.length >= 11) {
+    return `+${digits}`;
+  }
+
+  // Return the original if we can't parse it
+  return phone;
+};
+
 export default function OnboardingPage() {
   const { user, isLoaded } = useUser();
   const [step, setStep] = useState<"role" | "validate" | "complete">("role");
@@ -160,7 +195,7 @@ export default function OnboardingPage() {
         if (selectedRole === "student") {
           setValidatedStudent(data.student);
           if (data.student.contacts) {
-            setPhone(data.student.contacts);
+            setPhone(normalizePhoneNumber(data.student.contacts));
           }
           setMessage({
             type: "success",
@@ -169,7 +204,7 @@ export default function OnboardingPage() {
         } else {
           setValidatedFaculty(data.faculty);
           if (data.faculty.phoneNumber) {
-            setPhone(data.faculty.phoneNumber);
+            setPhone(normalizePhoneNumber(data.faculty.phoneNumber));
           }
           setMessage({
             type: "success",
