@@ -24,6 +24,7 @@ export interface ClassInformation {
 }
 
 export interface SubjectInformation {
+    subject: any;
     type: string;
     subject_code: string;
     message: string;

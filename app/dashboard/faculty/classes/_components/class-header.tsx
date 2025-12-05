@@ -3,17 +3,26 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   ArrowLeft,
   Calendar,
   Clock,
   MapPin,
   Users,
-  GraduationCap,
+  MoreVertical,
+  Settings,
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { getClassColor } from "../_utils/colors";
 
 type ClassDetails = {
+  id?: string | number; // Added id to interface
   code: string;
   name: string;
   section: string;
@@ -47,6 +56,8 @@ interface ClassHeaderProps {
 }
 
 export function ClassHeader({ classDetails, schedule = [] }: ClassHeaderProps) {
+  const pathname = usePathname();
+
   // Ensure schedule is always an array
   const scheduleArray = Array.isArray(schedule) ? schedule : [];
 
@@ -54,6 +65,7 @@ export function ClassHeader({ classDetails, schedule = [] }: ClassHeaderProps) {
   const transformedSchedule = scheduleArray.map((item) => ({
     id: item.id || Math.random().toString(36).substr(2, 9),
     dayOfWeek: item.dayOfWeek || item.day_of_week || "",
+    startTime: item.startTime || item.start_time || item.formatted_start_time || "",
     timeRange: item.time_range || `${item.formatted_start_time || ''} - ${item.formatted_end_time || ''}`,
     room: item.room
       ? typeof item.room === 'string'
@@ -76,14 +88,15 @@ export function ClassHeader({ classDetails, schedule = [] }: ClassHeaderProps) {
     const dayDiff =
       dayOrder.indexOf(a.dayOfWeek) - dayOrder.indexOf(b.dayOfWeek);
     if (dayDiff !== 0) return dayDiff;
-    return a.startTime.localeCompare(b.startTime);
+    return a.startTime?.localeCompare(b.startTime || "") || 0;
   });
 
   const theme = getClassColor(classDetails.code);
+  const classId = classDetails.id;
 
   return (
     <div className="w-full max-w-5xl mx-auto pt-4 px-4 sm:px-6">
-      <div className="mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <Link
           href="/dashboard/faculty/classes"
           className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
@@ -91,19 +104,39 @@ export function ClassHeader({ classDetails, schedule = [] }: ClassHeaderProps) {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Classes
         </Link>
+
+        {/* Settings Menu - only show if we have a valid class ID */}
+        {classId && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                <MoreVertical className="h-4 w-4" />
+                <span className="sr-only">Open menu</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/dashboard/faculty/classes/${classId}/settings`} className="flex items-center cursor-pointer">
+                  <Settings className="mr-2 h-4 w-4" />
+                  Class Settings
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
 
       <div
         className="relative w-full rounded-xl overflow-hidden shadow-lg border border-border/50 bg-card text-card-foreground transition-all"
       >
         {/* Decorative Background Pattern using Global Colors */}
-        <div 
+        <div
           className="absolute inset-0 opacity-10"
-          style={{ 
-            background: `radial-gradient(circle at top right, var(--primary) 0%, transparent 40%), radial-gradient(circle at bottom left, ${theme.base} 0%, transparent 40%)` 
+          style={{
+            background: `radial-gradient(circle at top right, var(--primary) 0%, transparent 40%), radial-gradient(circle at bottom left, ${theme.base} 0%, transparent 40%)`
           }}
         />
-        
+
         {/* Accent Bar */}
         <div className="absolute top-0 left-0 w-1 h-full bg-primary/20" />
 
